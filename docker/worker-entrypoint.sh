@@ -143,8 +143,9 @@ try:
 except Exception:
     raw = {"subtype": "error", "session_id": "", "total_cost_usd": 0, "num_turns": 0}
 
+# 修改说明：Bug ① 修复 — Claude 提交后工作区干净，需用 ..HEAD 比较提交间差异 | 修改时间：2026-07-03
 diff = subprocess.run(
-    ["git", "-C", "/workspace/repo", "diff", "origin/main", "--stat"],
+    ["git", "-C", "/workspace/repo", "diff", "origin/main..HEAD", "--stat"],
     capture_output=True, text=True
 ).stdout.strip()
 
@@ -176,8 +177,15 @@ PARSEEOF
     dev-flow-spec submit "$TASK_ID" /tmp/output.json
 
     # 10. Push branch
+    # 修改说明：Bug ② 修复 — 暴露 push 真实错误 + 远程验证 | 修改时间：2026-07-03
     echo "[worker] push branch..."
-    git push origin "dev-flow/$TASK_ID" 2>/dev/null || echo "[worker] push 失败（可能无变更）"
+    if ! git remote get-url origin >/dev/null 2>&1; then
+        echo "[worker] ❌ push 失败: origin remote 不存在，尝试修复..."
+        git remote add origin "$REPO_URL" 2>/dev/null || echo "[worker] ❌ 无法修复 origin"
+    fi
+    PUSH_ERR=$(git push origin "dev-flow/$TASK_ID" 2>&1) && \
+        echo "[worker] push 成功 → dev-flow/$TASK_ID" || \
+        echo "[worker] ⚠️ push 失败: $(echo "$PUSH_ERR" | tail -1)"
 
     # 11. 停心跳
     kill $HB_PID 2>/dev/null || true
