@@ -85,30 +85,100 @@ while true; do
     git clean -fdx
     mkdir -p .hermes/evidence
 
-    # 6. 从 spec 拼 prompt
-    GOAL=$(python3 -c "
-import json
+    # 6. 从 spec 读 worker 类型
+    # 修改说明：Codex Worker — 双 CLI 支持 | 修改时间：2026-07-03
+    WORKER_TYPE=$(python3 -c "
+import json,sys
 d=json.load(open('/tmp/input.json'))
-print(d['goal'])
+sys.stdout.write(d.get('worker','claude'))
+")
+    echo "[worker] 类型: $WORKER_TYPE"
+
+    # 7. 从 spec 拼 prompt（共用）
+    GOAL=$(python3 -c "
+import json,sys
+d=json.load(open('/tmp/input.json'))
+sys.stdout.write(d['goal'])
 ")
 
     ACCEPTANCE=$(python3 -c "
-import json
+import json,sys
 d=json.load(open('/tmp/input.json'))
-print(chr(10).join('- '+a for a in d.get('acceptance',[])))
+sys.stdout.write(chr(10).join('- '+a for a in d.get('acceptance',[])))
 ")
 
     FORBIDDEN=$(python3 -c "
-import json
+import json,sys
 d=json.load(open('/tmp/input.json'))
-print(chr(10).join('- '+f for f in d.get('constraints',{}).get('forbidden',[])))
+sys.stdout.write(chr(10).join('- '+f for f in d.get('constraints',{}).get('forbidden',[])))
 ")
 
     echo "[worker] goal: ${GOAL:0:80}..."
 
-    # 7. 调 Claude Code
-    echo "[worker] starting claude code..."
-    claude --bare -p "你是 dev-flow worker agent。
+    # 8. 调用 CLI agent（按类型路由）
+    # 修改说明：Codex Worker — 双 CLI 支持 | 修改时间：2026-07-03
+    if [ "$WORKER_TYPE" = "codex" ]; then
+        echo "[worker] starting codex..."
+        codex exec --full-auto "你是 dev-flow worker agent。
+
+## 任务目标
+$GOAL
+
+## 验收标准
+$ACCEPTANCE
+
+## 约束（必须遵守）
+$FORBIDDEN
+
+## 完成后
+1. git add -A
+2. git commit -m 'feat: dev-flow task'
+3. 在最后一行输出: DONE" 2>&1 | tee /tmp/agent-raw.txt || true
+        echo "[worker] codex 完成，解析输出..."
+
+        python3 << 'PARSEEOF'
+import json, subprocess, os
+
+task_id = os.environ["TASK_ID"]
+worker_type = "codex"
+
+# Codex 输出是纯文本，解析 DONE 标记和 git 状态
+raw_text = ""
+try:
+    with open("/tmp/agent-raw.txt") as f:
+        raw_text = f.read()
+except Exception:
+    pass
+
+diff = subprocess.run(
+    ["git", "-C", "/workspace/repo", "diff", "origin/main..HEAD", "--stat"],
+    capture_output=True, text=True
+).stdout.strip()
+
+commit = subprocess.run(
+    ["git", "-C", "/workspace/repo", "log", "--oneline", "-1"],
+    capture_output=True, text=True
+).stdout.strip()
+
+# Codex 没有 turns/cost 统计
+output = {
+    "task_id": task_id,
+    "status": "done" if diff else "blocked",
+    "worker": worker_type,
+    "commits": [commit.split()[0]] if commit else [],
+    "evidence": {
+        "diff_stat": diff,
+    },
+}
+
+with open("/tmp/output.json", "w") as f:
+    json.dump(output, f, ensure_ascii=False)
+
+print(json.dumps(output, indent=2, ensure_ascii=False))
+PARSEEOF
+    else
+        echo "[worker] starting claude code..."
+        claude --bare -p "你是 dev-flow worker agent。
 
 ## 任务目标
 $GOAL
@@ -124,21 +194,21 @@ $FORBIDDEN
 2. git add + git commit -m 'feat: dev-flow task'
 3. 输出 JSON（用 \`\`\`json 包裹）:
 {\"status\":\"done\",\"commits\":[\"<sha>\"],\"files_changed\":[\"...\"],\"evidence\":{\"diff_stat\":\"...\"},\"self_check\":[{\"criterion\":\"...\",\"met\":true,\"proof\":\"...\"}]}" \
-        --output-format json \
-        --max-turns 30 \
-        --max-budget-usd 1.50 \
-        --dangerously-skip-permissions 2>&1 | tee /tmp/claude-raw.json || true
+            --output-format json \
+            --max-turns 30 \
+            --max-budget-usd 1.50 \
+            --dangerously-skip-permissions 2>&1 | tee /tmp/agent-raw.txt || true
 
-    echo "[worker] claude code 完成，解析输出..."
+        echo "[worker] claude code 完成，解析输出..."
 
-    # 8. 解析输出（用 os.environ，不用 heredoc 变量）
-    python3 << 'PARSEEOF'
+        python3 << 'PARSEEOF'
 import json, subprocess, os
 
 task_id = os.environ["TASK_ID"]
+worker_type = "claude"
 
 try:
-    with open("/tmp/claude-raw.json") as f:
+    with open("/tmp/agent-raw.txt") as f:
         raw = json.load(f)
 except Exception:
     raw = {"subtype": "error", "session_id": "", "total_cost_usd": 0, "num_turns": 0}
@@ -157,6 +227,7 @@ commit = subprocess.run(
 output = {
     "task_id": task_id,
     "status": "done" if diff else "blocked",
+    "worker": worker_type,
     "commits": [commit.split()[0]] if commit else [],
     "evidence": {
         "diff_stat": diff,
@@ -171,6 +242,7 @@ with open("/tmp/output.json", "w") as f:
 
 print(json.dumps(output, indent=2, ensure_ascii=False))
 PARSEEOF
+    fi
 
     # 9. Submit output
     echo "[worker] submit output..."

@@ -12,6 +12,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Claude Code CLI
 RUN npm install -g @anthropic-ai/claude-code
 
+# Codex CLI（双 CLI 支持）
+# 修改说明：Codex Worker — 双 CLI 支持 | 修改时间：2026-07-03
+RUN npm install -g @openai/codex
+
 # dev-flow 工具
 COPY dev-flow-spec /usr/local/bin/dev-flow-spec
 COPY reset.sh /usr/local/bin/reset.sh

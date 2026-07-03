@@ -39,6 +39,12 @@ spec:
               key: ANTHROPIC_AUTH_TOKEN
         - name: ANTHROPIC_BASE_URL
           value: "https://open.bigmodel.cn/api/anthropic"
+        # 修改说明：Codex Worker — 双 CLI 支持 | 修改时间：2026-07-03
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: dev-flow-secrets
+              key: OPENAI_API_KEY
         volumeMounts:
         - name: ssh-key
           mountPath: /home/worker/.ssh/id_rsa

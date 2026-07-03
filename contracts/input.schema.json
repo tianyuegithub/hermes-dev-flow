@@ -28,6 +28,12 @@
       "type": "string",
       "description": "自然语言任务目标（用户原话 + intake 归一）"
     },
+    "worker": {
+      "type": "string",
+      "enum": ["claude", "codex"],
+      "default": "claude",
+      "description": "选择 CLI agent: claude (智谱 glm-5.2) 或 codex (OpenAI)"
+    },
     "approved_plan": {
       "type": "string",
       "description": "若方案闸门已过，附冻结的方案（只读引用）"
