@@ -14,9 +14,12 @@ spec:
       labels:
         app: dev-flow-worker
     spec:
+      # 修改说明：修复 SSH key 权限 — 确保挂载文件归属 worker 用户组 | 修改时间：2026-07-03
+      securityContext:
+        fsGroup: 1000
       containers:
       - name: worker
-        image: 192.168.31.200:8080/dev-flow/worker:latest
+        image: 192.168.31.200:8080/dev-flow/worker:v2
         imagePullPolicy: Always
         env:
         - name: REDIS_HOST
