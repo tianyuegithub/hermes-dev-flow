@@ -237,6 +237,31 @@ output = {
     "session_id": raw.get("session_id", ""),
 }
 
+# 修改说明：L1 逃生舱 — blocked 时写 Redis escalate | 修改时间：2026-07-03
+if not diff:
+    import subprocess as sp
+    sp.run([
+        "redis-cli", "-h", os.environ.get("REDIS_HOST", "redis.infra.svc.cluster.local"),
+        "-p", os.environ.get("REDIS_PORT", "6379"),
+        "SET", f"escalate:{task_id}",
+        json.dumps({
+            "task_id": task_id,
+            "type": "escalate",
+            "question": f"Agent ({worker_type}) 未能产生代码变更",
+            "options": [
+                {"id": "A", "desc": "重试 — 更明确的任务描述"},
+                {"id": "B", "desc": "放弃 — 标记失败"},
+                {"id": "C", "desc": "人工介入 — 查看 agent 日志"}
+            ],
+            "recommendation": "A",
+            "rationale": f"Agent returned no diff, possible causes: insufficient turns, ambiguous goal, or network error",
+            "blast_radius": "任务未执行，无影响",
+            "session_id": raw.get("session_id", ""),
+            "wip_branch": f"dev-flow/{task_id}",
+            "raw_output": raw_text[:2000],
+        }, ensure_ascii=False)
+    ])
+
 with open("/tmp/output.json", "w") as f:
     json.dump(output, f, ensure_ascii=False)
 

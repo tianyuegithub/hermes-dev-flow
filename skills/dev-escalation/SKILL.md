@@ -1,145 +1,122 @@
 ---
 name: dev-escalation
-description: "逃生舱：agent 遇岔口升级 → Hermes 检测 → 转人决策 → resume agent"
-version: 0.1.0
+description: "逃生舱：agent 遇岔口升级 → 检测 Redis escalate key → 转人决策 → resume agent"
+version: 1.0.0
 platforms: [macos]
-tags: [dev-flow, escalation, escape-hatch, human-in-the-loop]
+tags: [dev-flow, escalation, escape-hatch, human-in-the-loop, redis]
 ---
 
-# dev-escalation · 逃生舱协议
+# dev-escalation · 逃生舱协议 v1.0 (Redis)
 
-agent 撞到无法自决的岔口时，不瞎猜、不卡死，而是升起动态闸门等人类拍板。
+agent 撞到无法自决的岔口时，不瞎猜、不卡死，而是写 Redis `escalate:<task_id>`，
+Hermes 检测到后转给人拍板。
 
 ## 触发条件
 
-1. Worker 进程退出（`claude -p` 或 `codex exec` 返回）
-2. 检查 `.hermes/tasks/<task_id>/escalate.json` 是否存在
+1. Worker Pod 执行完成（Claude 或 Codex 返回）
+2. 检查 Redis `escalate:<task_id>` 是否存在
 3. 存在 → 进入逃生舱流程；不存在 → 正常流程
 
-## 执行流程
+## 执行流程（严格 v1.0）
 
-### 第一步：检测 escalate.json
-
-Worker 结束后，检查任务目录：
+### [STEP 1/6] 检测 Redis escalate
 
 ```bash
-TASK_DIR=~/Codes/ai-dev-flow/.hermes/tasks/<task_id>
-if [ -f "$TASK_DIR/escalate.json" ]; then
-  echo "🚨 逃生舱激活！"
-  cat "$TASK_DIR/escalate.json" | python3 -m json.tool
+TASK_ID="<task_id>"
+ESCALATE=$(redis-cli -h 192.168.31.173 -p 32319 GET "escalate:$TASK_ID" 2>/dev/null)
+
+if [ -n "$ESCALATE" ]; then
+  echo "🚨 逃生舱激活！$TASK_ID"
+  echo "$ESCALATE" | python3 -m json.tool
 else
-  echo "正常完成，继续闸门流程"
+  echo "无逃生舱，继续正常流程"
 fi
 ```
 
-### 第二步：更新状态
+### [STEP 2/6] 更新任务状态
 
 ```bash
-python3 ~/Codes/ai-dev-flow/scripts/state.py trans <task_id> ESCALATED
-python3 ~/Codes/ai-dev-flow/scripts/state.py set <task_id> escalation "$(cat .hermes/tasks/<task_id>/escalate.json)"
+python3 ~/Codes/ai-dev-flow/scripts/state.py trans "$TASK_ID" ESCALATED
+redis-cli -h 192.168.31.173 -p 32319 SET "status:$TASK_ID" "escalated"
 ```
 
-### 第三步：呈现人选
+### [STEP 3/6] 呈现给人
 
-解析 escalate.json，将结构化选项发给用户：
+解析 escalate JSON，将结构化选项发给用户（使用 clarify 工具）：
 
 ```
 🚨 逃生舱 · <task_id>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-问题: 这里有两种实现方式，需要人拍板
+问题: <question>
 
-选项 A: 用标准库 net/http
-  👍 零依赖
-  👎 缺少中间件支持
+选项 A: <desc>
+  👍 <pros>
+  👎 <cons>
 
-选项 B: 用 gin 框架
-  👍 生态好，项目已有 gin
-  👎 引入新依赖
+选项 B: <desc>
+  👍 <pros>
+  👎 <cons>
 
-🤖 Agent 推荐: B
-💡 理由: 项目已有 gin 依赖，保持一致
+🤖 Agent 推荐: <recommendation>
+💡 理由: <rationale>
 
-影响面: 仅影响路由注册方式
+影响面: <blast_radius>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 你的决定？
-  A) 选 A — 用标准库
-  B) 选 B — 用 gin（推荐）
-  C) 其他意见
 ```
 
-使用 `clarify` 工具发问。
+### [STEP 4/6] 写回决策到 Redis
 
-### 第四步：写回 decision.json
+用户决策后写入 Redis：
 
-用户决策后，写入：
-
-```json
-{
+```bash
+redis-cli -h 192.168.31.173 -p 32319 SET "escalate:$TASK_ID:decision" '{
   "task_id": "<task_id>",
   "type": "decision",
   "chosen": "B",
-  "note": "用 gin，项目已有的就别再加标准库了",
-  "decided_at": "2026-07-01T12:00:00Z"
-}
+  "note": "用户决定的文字说明",
+  "decided_at": "<ISO timestamp>"
+}'
 ```
+
+### [STEP 5/6] Resume agent（L0 模式）
+
+**注意**: L1 Pod 热池的 resume 暂不支持（Pod 内 agent 进程已退出）。
+当前处理方式：
+
+- **选项 A (重试)**: 修改 spec 的 goal 更明确后，重新 RPUSH 到队列
+- **选项 B (放弃)**: 标记 status 为 failed
+- **选项 C (人工)**: 保存决策，等人手动介入
 
 ```bash
-cat > ~/Codes/ai-dev-flow/.hermes/tasks/<task_id>/decision.json << EOF
-{...}
-EOF
+# 重试：修改 spec 后重新入队
+POD_NAME=$(redis-cli -h 192.168.31.173 -p 32319 KEYS "pod:*:state" | head -1 | sed 's/pod://;s/:state//')
+redis-cli -h 192.168.31.173 -p 32319 RPUSH "pod:$POD_NAME:queue" "$TASK_ID"
 ```
 
-### 第五步：Resume agent
+### [STEP 6/6] 恢复正常流程
 
-用保存的 `session_id` 恢复 Claude Code：
+决策执行后，清除 escalate key，继续 gate 流程。
 
 ```bash
-SESSION_ID=$(python3 -c "import json; print(json.load(open('$TASK_DIR/escalate.json'))['session_id'])")
-
-cd $REPO_DIR
-claude --resume "$SESSION_ID" -p \
-  "继续任务。上一轮的决策已做出：$(cat $TASK_DIR/decision.json | python3 -c 'import json,sys; d=json.load(sys.stdin); print(f\"选{d[\"chosen\"]}，{d[\"note\"]}\")')" \
-  --output-format json \
-  --max-turns 8 \
-  --dangerously-skip-permissions
+redis-cli -h 192.168.31.173 -p 32319 DEL "escalate:$TASK_ID"
+redis-cli -h 192.168.31.173 -p 32319 SET "status:$TASK_ID" "running"
 ```
-
-### 第六步：恢复正常流程
-
-Resume 完成后，检测是否有新的 escalate.json → 如有则循环；如无则进入 dev-gate。
 
 ---
 
-## Worker 端（Claude Code）——如何在 prompt 中注入逃生舱指令
+## Worker 端 — 自动写 Redis escalate
 
-在 dev-run-worker 的 prompt 中加入：
+worker-entrypoint.sh 在输出解析阶段自动检测：
+- 如果 `diff_stat` 为空（agent 无代码产出）
+- 自动写 `escalate:<task_id>` 到 Redis
+- 包含 worker 类型、session_id、原始输出片段
 
-```
-如果你遇到以下情况，不要自己做决定，而是写 .hermes/tasks/<task_id>/escalate.json 然后退出：
-- 需要在两种互斥的技术方案间选择，且各有利弊
-- 修改会影响数据库 schema 或安全策略
-- 发现任务描述有歧义，无法确定用户意图
-- 修改范围超出原始任务定义
-
-escalate.json 格式：
-{
-  "task_id": "<task_id>",
-  "type": "escalate",
-  "question": "清晰描述需要决策的问题",
-  "options": [{"id":"A","desc":"...","pros":"...","cons":"..."}, ...],
-  "recommendation": "推荐选项的 ID",
-  "rationale": "推荐理由",
-  "blast_radius": "影响面说明",
-  "session_id": "<当前 session ID>",
-  "wip_branch": "dev-flow/<task_id>"
-}
-
-写完后用 exit 0 退出（不要继续编码）。
-```
+Hermes 端的技能只需要检测 Redis key 即可。
 
 ## 陷阱
 
-1. **session_id 必须在 escalate.json 中保存**——没有它就无法 resume
-2. **escalate.json 必须在 WIP commit 之前写**——否则 agent 退出后文件消失
-3. **resume 的 prompt 必须包含决策上下文**——否则 agent 不知道之前发生了什么
-4. **逃生舱可能循环**——如果 agent 反复 escalate 同一问题，需要人介入打破循环
+1. **Redis key 命名**: `escalate:<task_id>` for escalate, `escalate:<task_id>:decision` for decision
+2. **L1 Pod resume 限制**: Pod 热池在任务间执行 reset，无法保留 agent 会话。resume 通过重新入队实现
+3. **逃生舱可能循环**: 如果 agent 反复 escalate 同一问题，需要人介入打破循环
+4. **清理**: 决策完成后记得 DEL escalate key，避免下次误触发
