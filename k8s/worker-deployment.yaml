@@ -1,0 +1,50 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dev-flow-worker
+  namespace: dev-flow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dev-flow-worker
+  template:
+    metadata:
+      labels:
+        app: dev-flow-worker
+    spec:
+      containers:
+      - name: worker
+        image: 192.168.31.200:8080/dev-flow/worker:latest
+        imagePullPolicy: Always
+        env:
+        - name: REDIS_HOST
+          value: "redis.infra.svc.cluster.local"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: REPO_URL
+          value: "ssh://git@192.168.31.7:30022/datavdl/deer-flow.git"
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: ANTHROPIC_AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: dev-flow-secrets
+              key: ANTHROPIC_AUTH_TOKEN
+        - name: ANTHROPIC_BASE_URL
+          value: "https://open.bigmodel.cn/api/anthropic"
+        volumeMounts:
+        - name: ssh-key
+          mountPath: /home/worker/.ssh/id_rsa
+          subPath: id_rsa
+      volumes:
+      - name: ssh-key
+        secret:
+          secretName: dev-flow-secrets
+          items:
+          - key: GITEA_SSH_KEY
+            path: id_rsa
+          defaultMode: 0600

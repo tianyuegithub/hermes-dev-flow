@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-dev-flow/contracts/escalate.schema.json",
+  "title": "逃生舱协议 · Agent ⇄ Hermes（中途）",
+  "description": "agent 撞到无法自决的岔口时写入此文件并退出。Hermes 检测到后转给人决策，写回 decision。",
+  "type": "object",
+  "required": ["task_id", "type", "question", "options"],
+  "properties": {
+    "task_id": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "const": "escalate"
+    },
+    "question": {
+      "type": "string",
+      "description": "需要人决策的问题"
+    },
+    "options": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "desc": {"type": "string"},
+          "pros": {"type": "string"},
+          "cons": {"type": "string"}
+        },
+        "required": ["id", "desc"]
+      }
+    },
+    "recommendation": {
+      "type": "string",
+      "description": "agent 推荐的选项 ID"
+    },
+    "rationale": {
+      "type": "string",
+      "description": "推荐理由"
+    },
+    "blast_radius": {
+      "type": "string",
+      "description": "影响面 / 不可逆性说明"
+    },
+    "wip_branch": {
+      "type": "string",
+      "description": "已提交的 WIP 分支引用（供 resume）"
+    },
+    "session_id": {
+      "type": "string",
+      "description": "CLI agent 会话 ID（供 resume）"
+    }
+  }
+}

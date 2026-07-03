@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-dev-flow/contracts/input.schema.json",
+  "title": "输入契约 · Hermes → Worker Agent",
+  "description": "Hermes 派给 CLI agent 的任务定义。agent 黑盒只读此契约，不改写。",
+  "type": "object",
+  "required": ["task_id", "task_type", "repo_url", "goal"],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "description": "全局唯一任务标识"
+    },
+    "task_type": {
+      "type": "string",
+      "enum": ["feature", "bug", "doc", "research", "refactor"],
+      "description": "任务类型，驱动主图裁剪路径"
+    },
+    "repo_url": {
+      "type": "string",
+      "description": "Git 仓库 SSH/HTTPS URL"
+    },
+    "base_branch": {
+      "type": "string",
+      "default": "main",
+      "description": "工作分支的基线"
+    },
+    "goal": {
+      "type": "string",
+      "description": "自然语言任务目标（用户原话 + intake 归一）"
+    },
+    "approved_plan": {
+      "type": "string",
+      "description": "若方案闸门已过，附冻结的方案（只读引用）"
+    },
+    "acceptance": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "验收标准，逐条可核查"
+    },
+    "constraints": {
+      "type": "object",
+      "properties": {
+        "coding_standards": {"type": "string"},
+        "forbidden": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "禁止事项列表"
+        }
+      }
+    },
+    "budget": {
+      "type": "object",
+      "properties": {
+        "max_iterations": {"type": "integer", "default": 8},
+        "max_wallclock_minutes": {"type": "integer", "default": 15}
+      }
+    },
+    "escalation_endpoint": {
+      "type": "string",
+      "description": "逃生舱回调路径"
+    },
+    "spec_ref": {
+      "type": "string",
+      "description": "当前任务 spec 的只读引用"
+    }
+  }
+}

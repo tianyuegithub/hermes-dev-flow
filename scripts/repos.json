@@ -1,0 +1,10 @@
+{
+  "deer-flow": {
+    "url": "ssh://git@192.168.31.7:30022/datavdl/deer-flow.git",
+    "gitea_repo": "datavdl/deer-flow",
+    "gitea_api": "http://192.168.31.7:30000/api/v1/repos/datavdl/deer-flow",
+    "default_branch": "main",
+    "language": "python",
+    "triggers": ["deer-flow", "deerflow", "灵境"]
+  }
+}

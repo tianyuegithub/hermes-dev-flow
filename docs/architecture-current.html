@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dev-Flow 编排框架 · 当前实现状态 · 2026-07-01</title>
+<style>
+:root{--bg:#0f1420;--panel:#161d2e;--panel2:#1c2540;--ink:#e6ecf5;--sub:#9fb0c9;
+--line:#2a3450;--accent:#4f9dff;--accent2:#38d39f;--warn:#ffb454;--bad:#ff6b6b;
+--good:#38d39f;--purple:#b98cff;--chip:#20293f;
+--mono:"SF Mono",Consolas,"DejaVu Sans Mono",monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);
+font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;
+line-height:1.75;font-size:15px}
+.wrap{max-width:1080px;margin:0 auto;padding:40px 28px 120px}
+h1{font-size:28px;margin:0 0 8px}
+.status-tag{display:inline-block;font-weight:700;padding:3px 14px;border-radius:20px;
+font-size:12px;margin-left:6px;vertical-align:middle}
+.s-ok{background:#123a2b;color:var(--good);border:1px solid #1e5a43}
+.s-warn{background:#33291a;color:var(--warn);border:1px solid #5a4526}
+.s-bad{background:#1f1414;color:var(--bad);border:1px solid #4a3030}
+h2{font-size:21px;margin:42px 0 14px;padding-left:12px;border-left:4px solid var(--accent)}
+h3{font-size:16px;margin:20px 0 8px;color:#cfe0ff}
+p{margin:8px 0}.lead{color:var(--sub);font-size:15px}
+code{font-family:var(--mono);background:var(--chip);padding:1px 6px;border-radius:5px;
+font-size:13px;color:#cfe0ff}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+padding:18px 20px;margin:14px 0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:760px){.grid2,.grid3{grid-template-columns:1fr}}
+.kv{display:grid;grid-template-columns:150px 1fr;gap:2px 14px;font-size:13.5px}
+.kv .kk{color:var(--sub);font-family:var(--mono);font-size:12px;padding:3px 0;
+border-bottom:1px solid #202a42}
+.kv .vv{padding:3px 0;border-bottom:1px solid #202a42}
+.ok{color:var(--good)}.warn{color:var(--warn)}.bad{color:var(--bad)}
+table{border-collapse:collapse;width:100%;font-size:13.5px;margin:10px 0}
+th{text-align:left;padding:8px 10px;background:var(--panel2);color:var(--sub);
+font-weight:600;border-bottom:2px solid var(--line)}
+td{padding:8px 10px;border-bottom:1px solid #202a42}
+.note{border-left:3px solid var(--warn);background:#1e1a12;padding:10px 14px;
+border-radius:0 8px 8px 0;margin:12px 0;font-size:13.5px}
+.good-box{border-left:3px solid var(--good);background:#101f19;padding:10px 14px;
+border-radius:0 8px 8px 0;margin:12px 0;font-size:13.5px}
+.bad-box{border-left:3px solid var(--bad);background:#1f1414;padding:10px 14px;
+border-radius:0 8px 8px 0;margin:12px 0;font-size:13.5px}
+pre{background:#0c1120;border:1px solid var(--line);border-radius:10px;padding:12px;
+overflow:auto;font-family:var(--mono);font-size:12.5px;color:#cfe0ff;line-height:1.5}
+hr{border:0;border-top:1px solid var(--line);margin:30px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header style="border-bottom:1px solid var(--line);padding-bottom:20px;margin-bottom:8px">
+  <h1>Dev-Flow 编排框架 · 当前实现状态<span class="status-tag s-ok">L0 ✅ L1 ✅</span></h1>
+  <p class="lead">Hermes 编排 CLI agent 黑盒执行软件开发，三份契约 + 闸门 + 逃生舱 + Redis 引用传递。
+  L0 本地回路 + L1 K3s Pod 热池均已验证通过。</p>
+</header>
+
+<!-- ===== 总览图 ===== -->
+<h2>系统总览（当前实现）</h2>
+<svg viewBox="0 0 1000 620" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
+  <defs>
+    <marker id="ar" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#5a7dbf"/>
+    </marker>
+    <marker id="arg" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#38d39f"/>
+    </marker>
+    <marker id="arp" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#b98cff"/>
+    </marker>
+  </defs>
+
+  <!-- User -->
+  <rect x="40" y="30" width="130" height="60" rx="12" fill="#20293f" stroke="#4f9dff" stroke-width="1.5"/>
+  <text x="105" y="58" fill="#e6ecf5" font-size="15" text-anchor="middle" font-weight="700">你 (人)</text>
+  <text x="105" y="78" fill="#9fb0c9" font-size="11" text-anchor="middle">自然语言触发</text>
+
+  <!-- Hermes -->
+  <rect x="250" y="20" width="500" height="280" rx="16" fill="#161d2e" stroke="#4f9dff" stroke-width="2"/>
+  <text x="500" y="48" fill="#4f9dff" font-size="16" text-anchor="middle" font-weight="800">Hermes · 常驻编排 / 入口面板 (Mac)</text>
+
+  <!-- Skills row -->
+  <g font-size="11.5">
+    <rect x="270" y="62" width="92" height="42" rx="9" fill="#1c2540" stroke="#38d39f"/>
+    <text x="316" y="82" fill="#38d39f" text-anchor="middle" font-weight="600">intake</text>
+    <text x="316" y="96" fill="#9fb0c9" text-anchor="middle" font-size="9">分类·确认·建任务</text>
+
+    <rect x="370" y="62" width="92" height="42" rx="9" fill="#1c2540" stroke="#b98cff"/>
+    <text x="416" y="82" fill="#e6ecf5" text-anchor="middle" font-weight="600">worker</text>
+    <text x="416" y="96" fill="#9fb0c9" text-anchor="middle" font-size="9">派任务·轮询·证据</text>
+
+    <rect x="470" y="62" width="92" height="42" rx="9" fill="#1c2540" stroke="#ffb454"/>
+    <text x="516" y="82" fill="#e6ecf5" text-anchor="middle" font-weight="600">gate</text>
+    <text x="516" y="96" fill="#9fb0c9" text-anchor="middle" font-size="9">六项防假绿</text>
+
+    <rect x="570" y="62" width="92" height="42" rx="9" fill="#1c2540" stroke="#ff6b6b"/>
+    <text x="616" y="82" fill="#e6ecf5" text-anchor="middle" font-weight="600">escalation</text>
+    <text x="616" y="96" fill="#9fb0c9" text-anchor="middle" font-size="9">岔口·决策·resume</text>
+
+    <rect x="670" y="62" width="64" height="42" rx="9" fill="#1c2540" stroke="#38d39f"/>
+    <text x="702" y="82" fill="#e6ecf5" text-anchor="middle" font-weight="600">integrate</text>
+    <text x="702" y="96" fill="#9fb0c9" text-anchor="middle" font-size="9">push+PR</text>
+  </g>
+
+  <!-- Scripts -->
+  <rect x="270" y="120" width="460" height="68" rx="10" fill="#141c2e" stroke="#2a3450"/>
+  <text x="500" y="142" fill="#9fb0c9" font-size="11" text-anchor="middle">辅助脚本层</text>
+  <g font-size="10.5" fill="#cfe0ff">
+    <text x="290" y="162">state.py</text>
+    <text x="360" y="162">build_prompt.py</text>
+    <text x="470" y="162">intake.py</text>
+    <text x="540" y="162">redis_helper.sh</text>
+    <text x="650" y="162">gitea_pr.sh</text>
+    <text x="290" y="180">repos.json</text>
+    <text x="360" y="180">git_prepare.sh</text>
+    <text x="490" y="180">contracts/ (3 schema)</text>
+  </g>
+
+  <!-- Mode selector -->
+  <rect x="270" y="200" width="460" height="42" rx="10" fill="#1e1a12" stroke="#ffb454"/>
+  <text x="500" y="218" fill="#ffb454" font-size="12" text-anchor="middle" font-weight="700">mode: local | pod</text>
+  <text x="500" y="234" fill="#9fb0c9" font-size="10" text-anchor="middle">local=claude -p 本地 | pod=Redis→K3s Pod 热池</text>
+
+  <!-- Audit -->
+  <rect x="270" y="254" width="460" height="36" rx="9" fill="#141c2e" stroke="#38d39f" stroke-dasharray="5 4"/>
+  <text x="500" y="276" fill="#38d39f" font-size="11" text-anchor="middle" font-weight="600">审计脊 · state.json + Redis 双写 · 每一步 [STEP X/Y] 打印</text>
+
+  <!-- Redis -->
+  <rect x="820" y="30" width="150" height="80" rx="12" fill="#20293f" stroke="#ff6b6b" stroke-width="1.5"/>
+  <text x="895" y="56" fill="#ff6b6b" font-size="14" text-anchor="middle" font-weight="700">Redis 7.4.9</text>
+  <text x="895" y="76" fill="#9fb0c9" font-size="10" text-anchor="middle">spec / output / heartbeat</text>
+  <text x="895" y="92" fill="#9fb0c9" font-size="10" text-anchor="middle">status / escalate / pod:state</text>
+  <text x="895" y="106" fill="#6f80a0" font-size="9" text-anchor="middle">infra namespace (已有)</text>
+
+  <!-- Arrows Hermes → Redis -->
+  <line x1="740" y1="70" x2="816" y2="55" stroke="#ff6b6b" stroke-width="1.5" marker-end="url(#ar)"/>
+  <text x="780" y="45" fill="#ff6b6b" font-size="9">SET spec</text>
+  <line x1="816" y1="80" x2="740" y2="100" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#ar)"/>
+  <text x="780" y="115" fill="#ff6b6b" font-size="9">GET output</text>
+
+  <!-- User → Hermes -->
+  <line x1="170" y1="60" x2="246" y2="50" stroke="#5a7dbf" stroke-width="2" marker-end="url(#ar)"/>
+  <line x1="246" y1="70" x2="172" y2="60" stroke="#5a7dbf" stroke-width="2" marker-end="url(#ar)"/>
+
+  <!-- ===== K3s Pod 热池 ===== -->
+  <rect x="120" y="340" width="630" height="260" rx="16" fill="#161d2e" stroke="#b98cff" stroke-width="2"/>
+  <text x="435" y="368" fill="#b98cff" font-size="15" text-anchor="middle" font-weight="800">K3s · Worker Pod 热池 (dev-flow namespace)</text>
+
+  <!-- Pod -->
+  <rect x="150" y="384" width="280" height="190" rx="12" fill="#1c2540" stroke="#2a3450"/>
+  <text x="290" y="408" fill="#e6ecf5" font-size="13" text-anchor="middle" font-weight="700">dev-flow-worker Pod</text>
+
+  <g font-size="10.5" fill="#cfe0ff">
+    <rect x="166" y="420" width="120" height="28" rx="6" fill="#0c1120" stroke="#2a3450"/>
+    <text x="226" y="438" text-anchor="middle">worker-entrypoint.sh</text>
+    <rect x="296" y="420" width="120" height="28" rx="6" fill="#0c1120" stroke="#2a3450"/>
+    <text x="356" y="438" text-anchor="middle">dev-flow-spec (CLI)</text>
+
+    <rect x="166" y="456" width="120" height="28" rx="6" fill="#0c1120" stroke="#2a3450"/>
+    <text x="226" y="474" text-anchor="middle">claude --bare -p</text>
+    <rect x="296" y="456" width="120" height="28" rx="6" fill="#0c1120" stroke="#2a3450"/>
+    <text x="356" y="474" text-anchor="middle">reset.sh</text>
+
+    <rect x="166" y="492" width="250" height="28" rx="6" fill="#0c1120" stroke="#38d39f"/>
+    <text x="291" y="510" text-anchor="middle" fill="#38d39f">心跳 30s + BLPOP 队列</text>
+
+    <text x="166" y="538" fill="#6f80a0" font-size="9">image: node:20-slim + claude-code + redis-tools + git</text>
+    <text x="166" y="552" fill="#6f80a0" font-size="9">user: worker (非root) | Harbor: 192.168.31.200:8080</text>
+    <text x="166" y="566" fill="#6f80a0" font-size="9">claude version: 2.1.197 | API: 智谱 glm-5.2</text>
+  </g>
+
+  <!-- Pod 状态 -->
+  <rect x="450" y="384" width="280" height="190" rx="12" fill="#1c2540" stroke="#2a3450"/>
+  <text x="590" y="408" fill="#e6ecf5" font-size="13" text-anchor="middle" font-weight="700">Pod 生命周期</text>
+
+  <g font-size="11" fill="#cfe0ff">
+    <rect x="470" y="424" width="60" height="26" rx="6" fill="#123a2b" stroke="#38d39f"/>
+    <text x="500" y="441" text-anchor="middle" fill="#38d39f">IDLE</text>
+    <rect x="544" y="424" width="60" height="26" rx="6" fill="#33291a" stroke="#ffb454"/>
+    <text x="574" y="441" text-anchor="middle" fill="#ffb454">BUSY</text>
+    <rect x="618" y="424" width="80" height="26" rx="6" fill="#2a2140" stroke="#b98cff"/>
+    <text x="658" y="441" text-anchor="middle" fill="#b98cff">RESETTING</text>
+
+    <line x1="530" y1="437" x2="540" y2="437" stroke="#9fb0c9" stroke-width="1.5" marker-end="url(#ar)"/>
+    <line x1="604" y1="437" x2="614" y2="437" stroke="#9fb0c9" stroke-width="1.5" marker-end="url(#ar)"/>
+    <line x1="658" y1="452" x2="658" y2="465" stroke="#9fb0c9" stroke-width="1.5"/>
+    <line x1="658" y1="465" x2="500" y2="465" stroke="#9fb0c9" stroke-width="1.5"/>
+    <line x1="500" y1="465" x2="500" y2="452" stroke="#9fb0c9" stroke-width="1.5" marker-end="url(#ar)"/>
+
+    <text x="470" y="490" fill="#9fb0c9" font-size="10">Redis Key:</text>
+    <text x="470" y="506" fill="#cfe0ff" font-size="9.5" font-family="monospace">pod:&lt;name&gt;:state = idle|busy|resetting</text>
+    <text x="470" y="520" fill="#cfe0ff" font-size="9.5" font-family="monospace">pod:&lt;name&gt;:queue = BLPOP</text>
+    <text x="470" y="538" fill="#9fb0c9" font-size="10">Reset 契约:</text>
+    <text x="470" y="552" fill="#38d39f" font-size="9.5">fetch→checkout -B→clean -fdx→reset --hard</text>
+    <text x="470" y="566" fill="#38d39f" font-size="9.5">验证: git status --porcelain = 空</text>
+  </g>
+
+  <!-- Redis → Pod -->
+  <line x1="895" y1="115" x2="895" y2="300" stroke="#ff6b6b" stroke-width="1.5"/>
+  <line x1="895" y1="300" x2="700" y2="300" stroke="#ff6b6b" stroke-width="1.5"/>
+  <line x1="700" y1="300" x2="700" y2="340" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#ar)"/>
+  <text x="720" y="295" fill="#ff6b6b" font-size="9">BLPOP queue</text>
+
+  <!-- Hermes → Pod (派任务) -->
+  <line x1="500" y1="300" x2="500" y2="340" stroke="#b98cff" stroke-width="2" marker-end="url(#arp)"/>
+  <text x="510" y="325" fill="#b98cff" font-size="9">RPUSH task_id</text>
+
+  <!-- Git Remote -->
+  <rect x="820" y="420" width="140" height="80" rx="12" fill="#20293f" stroke="#38d39f" stroke-width="1.5"/>
+  <text x="890" y="446" fill="#38d39f" font-size="13" text-anchor="middle" font-weight="700">Gitea</text>
+  <text x="890" y="466" fill="#9fb0c9" font-size="10" text-anchor="middle">ssh://git@192.168.31.7:30022</text>
+  <text x="890" y="482" fill="#9fb0c9" font-size="10" text-anchor="middle">datavdl/deer-flow.git</text>
+
+  <line x1="430" y1="470" x2="816" y2="455" stroke="#38d39f" stroke-width="1.5" marker-end="url(#arg)"/>
+  <text x="600" y="445" fill="#38d39f" font-size="9">clone / push / PR</text>
+</svg>
+
+<!-- ===== 验证状态 ===== -->
+<h2>L0 + L1 验证状态</h2>
+<div class="grid2">
+  <div class="card">
+    <h3 class="ok">✅ L0 本地回路</h3>
+    <div class="kv">
+      <div class="kk">验证任务</div><div class="vv">task-20260701-205613 (deer-flow 文案替换)</div>
+      <div class="kk">Worker</div><div class="vv">Claude Code glm-5.2, --bare -p</div>
+      <div class="kk">Turns</div><div class="vv">25 / 预算 30 (有 20% 缓冲)</div>
+      <div class="kk">成本</div><div class="vv">$0.46 / 预算 $1.50</div>
+      <div class="kk">变更</div><div class="vv">lingjing-platform.ts 16+16-</div>
+      <div class="kk">残留</div><div class="vv ok">零「北京市演艺」「bpa-ic」</div>
+      <div class="kk">PR</div><div class="vv"><a href="http://192.168.31.7:30000/datavdl/deer-flow/pulls/3" style="color:var(--accent)">Gitea PR #3</a></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3 class="ok">✅ L1 Pod 热池</h3>
+    <div class="kv">
+      <div class="kk">冒烟任务</div><div class="vv">l1-smoke3-010612 (创建 hello-pod.txt)</div>
+      <div class="kk">Pod</div><div class="vv">dev-flow-worker-854fc6b797-dhjxl (Running)</div>
+      <div class="kk">Claude Code</div><div class="vv">v2.1.197 / 智谱 glm-5.2</div>
+      <div class="kk">Turns</div><div class="vv">16</div>
+      <div class="kk">成本</div><div class="vv">$0.079</div>
+      <div class="kk">Commit</div><div class="vv ok">62c4853</div>
+      <div class="kk">Redis 传递</div><div class="vv ok">spec→BLPOP→execute→output 全链路</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 数据流 ===== -->
+<h2>Spec 引用传递（Redis）</h2>
+<div class="card">
+<pre>
+Hermes (Mac)                        Redis                          Worker Pod (K3s)
+     │                                │                                  │
+     │ SET spec:&lt;task_id&gt; {input}     │                                  │
+     ├───────────────────────────────►│                                  │
+     │                                │                                  │
+     │ RPUSH pod:&lt;name&gt;:queue &lt;id&gt;    │                                  │
+     ├───────────────────────────────►│                                  │
+     │                                │ BLPOP pod:&lt;name&gt;:queue            │
+     │                                │◄─────────────────────────────────┤
+     │                                │ GET spec:&lt;task_id&gt;                │
+     │                                │◄─────────────────────────────────┤
+     │                                │                                  │
+     │                                │ SET heartbeat:&lt;id&gt; (30s, TTL 60s) │ ← 心跳
+     │                                │◄─────────────────────────────────┤
+     │                                │                                  │
+     │                                │    ... claude --bare -p ...       │
+     │                                │                                  │
+     │                                │ SET output:&lt;task_id&gt; {evidence}   │
+     │                                │◄─────────────────────────────────┤
+     │ GET output:&lt;task_id&gt;           │                                  │
+     ├───────────────────────────────►│                                  │
+     │                                │                                  │
+     │ GET status:&lt;task_id&gt; (轮询)    │                                  │ ← 防假绿
+     ├───────────────────────────────►│                                  │
+</pre>
+</div>
+
+<!-- ===== 三份契约 ===== -->
+<h2>三份契约 + Spec 版本</h2>
+<div class="grid3">
+  <div class="card">
+    <h3>① 输入契约 · Hermes → Worker</h3>
+    <p><code>contracts/input.schema.json</code></p>
+    <p>Redis Key: <code>spec:&lt;task_id&gt;</code></p>
+    <p>版本: <code>spec:&lt;id&gt;:v1</code> → 打回 → <code>v2</code></p>
+    <p class="ok">✅ 已验证</p>
+  </div>
+  <div class="card">
+    <h3>② 输出契约 · Worker → Hermes</h3>
+    <p><code>contracts/output.schema.json</code></p>
+    <p>Redis Key: <code>output:&lt;task_id&gt;</code></p>
+    <p class="warn">⚠️ diff_stat 为空（reset 时序问题）</p>
+  </div>
+  <div class="card">
+    <h3>③ 逃生舱 · Worker ⇄ Hermes</h3>
+    <p><code>contracts/escalate.schema.json</code></p>
+    <p>Redis Key: <code>escalate:&lt;task_id&gt;</code></p>
+    <p>L0 模拟验证通过, L1 未触发</p>
+  </div>
+</div>
+
+<!-- ===== 5 个技能 ===== -->
+<h2>5 个 Hermes 技能（严格流程 v0.2）</h2>
+<table>
+<tr><th>技能</th><th>版本</th><th>步骤</th><th>硬闸门</th><th>状态</th></tr>
+<tr><td><code>dev-flow-intake</code></td><td>v0.2</td><td>4步: 分类→确认→创建→闸门</td><td>用户 clarify 确认</td><td class="ok">✅</td></tr>
+<tr><td><code>dev-flow-worker</code></td><td>v0.2</td><td>6步: 加载→状态→副本→prompt→黑盒→输出</td><td>CHECKPOINT 4a (JSON+git)</td><td class="ok">✅</td></tr>
+<tr><td><code>dev-flow-gate</code></td><td>v0.2</td><td>5步: 加载→六项核查→摘要→拍板→决策</td><td>用户 clarify 拍板</td><td class="ok">✅</td></tr>
+<tr><td><code>dev-flow-escalation</code></td><td>v0.1</td><td>6步: 检测→状态→呈现→决策→resume→恢复</td><td>—</td><td class="warn">⚠️ L0 模拟</td></tr>
+<tr><td><code>dev-flow-integrate</code></td><td>v0.1</td><td>4步: 确认→push→PR→更新</td><td>—</td><td class="ok">✅</td></tr>
+</table>
+
+<!-- ===== 已知问题 ===== -->
+<h2>已知问题（3 个）</h2>
+<div class="bad-box">
+  <b>① diff_stat 为空</b> — worker-entrypoint 在 Claude 执行后读 diff，但 git diff origin/main 在 pod 内可能失败（origin 引用丢失）。<br>
+  <b>修法</b>：在 Claude 执行完成后、reset 前立即读 diff 并写入 output。
+</div>
+<div class="bad-box">
+  <b>② push 失败</b> — reset.sh 的 <code>git checkout main</code> + <code>git reset --hard</code> 可能导致 origin remote 丢失。<br>
+  <b>修法</b>：push 在 reset 之前执行（当前顺序已正确），但需确认 origin URL 在 clone 后持久化。
+</div>
+<div class="bad-box">
+  <b>③ 7 个过期任务</b> — 测试残留任务状态卡在 GATE_PENDING/EXECUTING。<br>
+  <b>修法</b>：清理 <code>~/.hermes/tasks/</code> 下的测试任务。
+</div>
+
+<!-- ===== 落地路线 ===== -->
+<h2>落地路线</h2>
+<table>
+<tr><th>阶段</th><th>范围</th><th>状态</th></tr>
+<tr><td><b>L0</b> 本地回路</td><td>intake→worker→gate→integrate + 逃生舱 + 三份契约 + 严格流程</td><td class="ok">✅ 完成</td></tr>
+<tr><td><b>L0 打磨</b></td><td>--quiet + build_prompt.py + repos.json + turns buffer + mode 选择</td><td class="ok">✅ 完成</td></tr>
+<tr><td><b>L1</b> 容器化</td><td>Redis 传递 + Worker 镜像 + K3s Pod 热池 + reset 契约 + 心跳</td><td class="ok">✅ 验证通过</td></tr>
+<tr><td><b>L1.5</b> 稳定化</td><td>修 3 个 bug + Reconciler 自动重建 + Codex worker</td><td class="warn">⬜ 待做</td></tr>
+<tr><td><b>L2</b> 生产化</td><td>租户隔离 + 成本治理 + Web 面板 + 多 CLI 择优</td><td class="warn">⬜ 推迟</td></tr>
+</table>
+
+<hr>
+<p style="color:var(--sub);font-size:12px">
+基于 <code>~/Downloads/hermes-dev-orchestration-design.html</code> 原始设计，
+经过 L0 (本地回路) + L1 (容器化热池) 两阶段实现验证。
+每一处方案标注了实测数据和踩坑记录。
+</p>
+
+</div>
+</body>
+</html>

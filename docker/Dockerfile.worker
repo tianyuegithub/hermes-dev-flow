@@ -1,0 +1,38 @@
+FROM node:20-slim
+
+# 系统依赖
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    redis-tools \
+    git \
+    openssh-client \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Claude Code CLI
+RUN npm install -g @anthropic-ai/claude-code
+
+# dev-flow 工具
+COPY dev-flow-spec /usr/local/bin/dev-flow-spec
+COPY reset.sh /usr/local/bin/reset.sh
+COPY worker-entrypoint.sh /usr/local/bin/worker-entrypoint.sh
+RUN chmod 755 /usr/local/bin/dev-flow-spec \
+             /usr/local/bin/reset.sh \
+             /usr/local/bin/worker-entrypoint.sh
+
+# SSH 配置（key 通过 Secret mount，不烘进镜像）
+RUN mkdir -p /root/.ssh && \
+    echo "StrictHostKeyChecking no" > /root/.ssh/config && \
+    chmod 600 /root/.ssh/config
+
+# 非 root 用户（Claude Code 禁止 root 下 --dangerously-skip-permissions）
+RUN useradd -m -s /bin/bash worker && \
+    mkdir -p /workspace && chown worker:worker /workspace
+USER worker
+ENV HOME=/home/worker
+RUN mkdir -p /home/worker/.ssh && \
+    echo "StrictHostKeyChecking no" > /home/worker/.ssh/config && \
+    chmod 600 /home/worker/.ssh/config
+
+WORKDIR /workspace
+ENTRYPOINT ["worker-entrypoint.sh"]

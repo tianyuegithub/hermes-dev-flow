@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-dev-flow/contracts/output.schema.json",
+  "title": "输出契约 · Worker Agent → Hermes",
+  "description": "agent 完成任务后上报。注意：status 是声明，evidence 是证据。闸门只认 evidence。",
+  "type": "object",
+  "required": ["task_id", "status"],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "description": "对应输入契约的 task_id"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["done", "blocked", "escalate"],
+      "description": "done=完成 / blocked=无法继续 / escalate=需要人决策"
+    },
+    "branch": {
+      "type": "string",
+      "description": "已 push 的工作分支名"
+    },
+    "commits": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "本次任务的 commit SHA 列表"
+    },
+    "artifacts": {
+      "type": "object",
+      "description": "产物引用（全部落 git，此处给路径）",
+      "properties": {
+        "plan": {"type": "string", "description": "方案文档路径"},
+        "report": {"type": "string", "description": "验证报告路径"},
+        "docs": {"type": "string", "description": "文档路径"}
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "description": "防假绿核心：验证闸门只核这里，不核 status",
+      "properties": {
+        "test_output_path": {"type": "string"},
+        "test_result": {"type": "string", "enum": ["pass", "fail", "skipped"]},
+        "diff_stat": {"type": "string"},
+        "files_changed": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "self_check": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "criterion": {"type": "string"},
+          "met": {"type": "boolean"},
+          "proof": {"type": "string"}
+        },
+        "required": ["criterion", "met", "proof"]
+      }
+    },
+    "session_id": {
+      "type": "string",
+      "description": "CLI agent 会话 ID，供 resume 使用"
+    }
+  }
+}

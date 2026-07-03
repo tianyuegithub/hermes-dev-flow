@@ -1,0 +1,33 @@
+#!/bin/bash
+# ============================================================
+# dev-flow-spec — Worker 端 Redis spec 访问工具（打进镜像）
+# ============================================================
+set -euo pipefail
+
+REDIS_HOST="${REDIS_HOST:-redis.infra.svc.cluster.local}"
+REDIS_PORT="${REDIS_PORT:-6379}"
+
+case "$1" in
+  fetch)
+    redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" GET "spec:$2"
+    ;;
+  submit)
+    redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" SET "output:$2" "$(cat "$3")"
+    redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" SET "status:$2" "done"
+    ;;
+  heartbeat)
+    STATUS=$(redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" GET "status:$2" 2>/dev/null || echo "")
+    if [ "$STATUS" != "running" ]; then
+      exit 0
+    fi
+    redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" SET "heartbeat:$2" "$(date +%s)" EX 60
+    ;;
+  escalate)
+    redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" SET "escalate:$2" "$(cat "$3")"
+    redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" SET "status:$2" "escalate"
+    ;;
+  *)
+    echo "用法: dev-flow-spec fetch|submit|heartbeat|escalate <task_id> [file]"
+    exit 1
+    ;;
+esac
