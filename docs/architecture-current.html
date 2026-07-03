@@ -292,7 +292,7 @@ Hermes (Mac)                        Redis                          Worker Pod (K
     <h3>② 输出契约 · Worker → Hermes</h3>
     <p><code>contracts/output.schema.json</code></p>
     <p>Redis Key: <code>output:&lt;task_id&gt;</code></p>
-    <p class="warn">⚠️ diff_stat 为空（reset 时序问题）</p>
+    <p class="ok">✅ diff_stat 修复验证通过</p>
   </div>
   <div class="card">
     <h3>③ 逃生舱 · Worker ⇄ Hermes</h3>
@@ -313,19 +313,19 @@ Hermes (Mac)                        Redis                          Worker Pod (K
 <tr><td><code>dev-flow-integrate</code></td><td>v0.1</td><td>4步: 确认→push→PR→更新</td><td>—</td><td class="ok">✅</td></tr>
 </table>
 
-<!-- ===== 已知问题 ===== -->
-<h2>已知问题（3 个）</h2>
-<div class="bad-box">
-  <b>① diff_stat 为空</b> — worker-entrypoint 在 Claude 执行后读 diff，但 git diff origin/main 在 pod 内可能失败（origin 引用丢失）。<br>
-  <b>修法</b>：在 Claude 执行完成后、reset 前立即读 diff 并写入 output。
+<!-- ===== 已知问题（已修复）===== -->
+<h2>已知问题（3 个 — 全部已修复，2026-07-03）</h2>
+<div class="good-box">
+  <b>① diff_stat 为空</b> — 已修复: git diff origin/main..HEAD 比较提交间差异<br>
+  <b>验证</b>: L1 冒烟 smoke-20260703-111556 输出包含 "1 file changed, 1 insertion(+)" ✅
 </div>
-<div class="bad-box">
-  <b>② push 失败</b> — reset.sh 的 <code>git checkout main</code> + <code>git reset --hard</code> 可能导致 origin remote 丢失。<br>
-  <b>修法</b>：push 在 reset 之前执行（当前顺序已正确），但需确认 origin URL 在 clone 后持久化。
+<div class="good-box">
+  <b>② push 失败</b> — 已修复: 暴露真实错误 + 远程自动修复 + K8s fsGroup 修复 SSH key 权限<br>
+  <b>验证</b>: push 成功 → Gitea 分支 dev-flow/smoke-20260703-111556 确认 ✅
 </div>
-<div class="bad-box">
-  <b>③ 7 个过期任务</b> — 测试残留任务状态卡在 GATE_PENDING/EXECUTING。<br>
-  <b>修法</b>：清理 <code>~/.hermes/tasks/</code> 下的测试任务。
+<div class="good-box">
+  <b>③ 过期任务</b> — 已修复: 清理 6 个 GATE_PENDING/EXECUTING 残留任务<br>
+  <b>验证</b>: 仅剩 3 个 DONE 任务 ✅
 </div>
 
 <!-- ===== 落地路线 ===== -->
@@ -335,7 +335,7 @@ Hermes (Mac)                        Redis                          Worker Pod (K
 <tr><td><b>L0</b> 本地回路</td><td>intake→worker→gate→integrate + 逃生舱 + 三份契约 + 严格流程</td><td class="ok">✅ 完成</td></tr>
 <tr><td><b>L0 打磨</b></td><td>--quiet + build_prompt.py + repos.json + turns buffer + mode 选择</td><td class="ok">✅ 完成</td></tr>
 <tr><td><b>L1</b> 容器化</td><td>Redis 传递 + Worker 镜像 + K3s Pod 热池 + reset 契约 + 心跳</td><td class="ok">✅ 验证通过</td></tr>
-<tr><td><b>L1.5</b> 稳定化</td><td>修 3 个 bug + Reconciler 自动重建 + Codex worker</td><td class="warn">⬜ 待做</td></tr>
+<tr><td><b>L1.5</b> 稳定化</td><td>修 3 个 bug (✅) + Reconciler 自动重建 + Codex worker</td><td class="warn">🔄 进行中</td></tr>
 <tr><td><b>L2</b> 生产化</td><td>租户隔离 + 成本治理 + Web 面板 + 多 CLI 择优</td><td class="warn">⬜ 推迟</td></tr>
 </table>
 
