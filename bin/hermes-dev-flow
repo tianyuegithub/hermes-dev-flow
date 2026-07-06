@@ -94,6 +94,22 @@ def cmd_setup():
     if k8s_ns:
         config["k8s"] = {"namespace": k8s_ns}
 
+    # ── 镜像源 ──
+    if k8s_ns:
+        print()
+        print("── Worker 镜像源 (L1 Pod 用) ──")
+        print("  1) ghcr.io  (GitHub Container Registry，公开)")
+        print("  2) docker.io (Docker Hub)")
+        print("  3) 自建 Harbor (输入地址)")
+        choice = input("选择 [1]: ").strip() or "1"
+        if choice == "1":
+            config["image"] = {"source": "ghcr.io", "url": "ghcr.io/<user>/hermes-dev-flow/worker:latest"}
+        elif choice == "2":
+            config["image"] = {"source": "docker.io", "url": "docker.io/<user>/hermes-dev-flow-worker:latest"}
+        else:
+            harbor_url = input("Harbor 地址 [registry.example.com/project/worker:latest]: ").strip()
+            config["image"] = {"source": "harbor", "url": harbor_url}
+
     # ── 写入 ──
     config_dir = os.path.expanduser("~/.hermes/dev-flow")
     os.makedirs(config_dir, exist_ok=True)

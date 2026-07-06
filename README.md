@@ -51,10 +51,18 @@ hermes-dev-flow doctor
 
 ## L1 部署（可选）
 
+### 使用公开镜像
+
 ```bash
-# 1. 构建 Worker 镜像
+docker pull ghcr.io/<user>/hermes-dev-flow/worker:latest
+```
+
+### 自建镜像
+
+```bash
 docker build -f docker/Dockerfile.worker -t your-registry/dev-flow/worker:latest .
 docker push your-registry/dev-flow/worker:latest
+```
 
 # 2. 部署 K8s
 kubectl apply -f k8s/namespace.yaml

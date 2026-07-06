@@ -46,6 +46,11 @@ worker:
   heartbeat_interval: 30
   heartbeat_ttl: 60
 
+# ── Worker 镜像源（L1 用） ────────────────────────────────
+image:
+  source: "ghcr.io"                                    # ghcr.io | docker.io | harbor
+  url: "ghcr.io/<user>/hermes-dev-flow/worker:latest"  # 公开拉取地址
+
 # ── 路径 ─────────────────────────────────────────────────
 paths:
   tasks_dir: "~/.hermes/dev-flow/tasks"
