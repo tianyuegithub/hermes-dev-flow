@@ -29,15 +29,14 @@
 # 1. 安装 Claude Code
 npm install -g @anthropic-ai/claude-code
 
-# 2. 安装 Dev-Flow
-npx hermes-dev-flow setup
-#    → 交互式填写 API key、仓库地址、Redis 等配置
+# 2. 安装 Dev-Flow（从 GitHub 直接安装，无需 npm 账号）
+npm install -g github:tianyuegithub/hermes-dev-flow
 
-# 3. 检查环境
+# 3. 配置
+hermes-dev-flow setup
+
+# 4. 检查环境
 hermes-dev-flow doctor
-#    Claude Code: ✅ v2.1.177
-#    Git: ✅
-#    Redis: ✅ PONG
 ```
 
 ## 使用（在 Hermes 聊天中）
