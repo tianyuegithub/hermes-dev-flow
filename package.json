@@ -1,0 +1,44 @@
+{
+  "name": "hermes-dev-flow",
+  "version": "0.3.0",
+  "description": "AI 开发流程编排框架 — Hermes 编排 Claude Code/Codex 黑盒执行编码任务",
+  "main": "bin/hermes-dev-flow",
+  "bin": {
+    "hermes-dev-flow": "bin/hermes-dev-flow"
+  },
+  "files": [
+    "bin/",
+    "skills/",
+    "scripts/",
+    "contracts/",
+    "docker/",
+    "k8s/",
+    "config/config.example.yaml",
+    "README.md"
+  ],
+  "scripts": {
+    "setup": "python3 bin/hermes-dev-flow setup",
+    "doctor": "python3 bin/hermes-dev-flow doctor",
+    "config": "python3 bin/hermes-dev-flow config",
+    "status": "python3 bin/hermes-dev-flow status"
+  },
+  "dependencies": {
+    "pyyaml": ">=6.0"
+  },
+  "keywords": [
+    "ai",
+    "dev-flow",
+    "agent",
+    "orchestration",
+    "claude-code",
+    "codex",
+    "hermes",
+    "coding-agent"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": ""
+  }
+}

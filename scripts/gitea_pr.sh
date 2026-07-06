@@ -8,10 +8,10 @@ set -euo pipefail
 
 TASK_ID="$1"; TITLE="$2"; BODY_FILE="$3"; HEAD="$4"; BASE="${5:-main}"
 
-GITEA_URL="${GITEA_URL:-http://192.168.31.7:30000}"
-GITEA_USER="${GITEA_USER:-tianyue}"
-GITEA_PASS="${GITEA_PASS:-qwer1234}"
-GITEA_REPO="${GITEA_REPO:-datavdl/deer-flow}"
+GITEA_URL="${GITEA_URL:-}"
+GITEA_USER="${GITEA_USER:-}"
+GITEA_PASS="${GITEA_PASS:-}"
+GITEA_REPO="${GITEA_REPO:-}"
 API_URL="${GITEA_URL}/api/v1/repos/${GITEA_REPO}/pulls"
 
 echo "=== gitea_pr: ${TASK_ID} ==="
@@ -34,8 +34,8 @@ head = os.environ.get("PR_HEAD", "")
 base = os.environ.get("PR_BASE", "main")
 body_file = os.environ.get("PR_BODY_FILE", "")
 gitea_url = os.environ.get("GITEA_URL", "http://192.168.31.7:30000")
-gitea_user = os.environ.get("GITEA_USER", "tianyue")
-gitea_pass = os.environ.get("GITEA_PASS", "qwer1234")
+gitea_user = os.environ.get("GITEA_USER", "")
+gitea_pass = os.environ.get("GITEA_PASS", "")
 gitea_repo = os.environ.get("GITEA_REPO", "datavdl/deer-flow")
 
 # 读 body

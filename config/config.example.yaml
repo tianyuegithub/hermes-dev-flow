@@ -1,0 +1,53 @@
+# Dev-Flow 配置文件
+# 由 `hermes-dev-flow setup` 交互生成，也可手动编辑
+# 路径: ~/.hermes/dev-flow/config.yaml
+
+# ── Claude Code API（必填） ──────────────────────────────
+claude:
+  base_url: "https://open.bigmodel.cn/api/anthropic"   # 或 Anthropic 官方: https://api.anthropic.com
+  api_key: ""                                           # 智谱 API key 或 Anthropic API key
+
+# ── OpenAI API（可选，Codex Worker 用） ───────────────────
+openai:
+  api_key: ""                                           # OpenAI API key (sk-...)
+
+# ── Git 仓库 ─────────────────────────────────────────────
+repo:
+  url: "ssh://git@192.168.31.7:30022/datavdl/deer-flow.git"
+  clone_url: "ssh://git@192.168.31.7:30022"             # 去掉仓库路径的部分，供 gitea_pr.sh 用
+  default_branch: "main"
+  platform: "gitea"                                     # gitea | github | gitlab
+  triggers: ["deer-flow", "deerflow", "灵境"]            # 自然语言触发词
+
+# ── Gitea API（可选，开 PR 用） ──────────────────────────
+gitea:
+  url: "http://192.168.31.7:30000"
+  api_url: "http://192.168.31.7:30000/api/v1"
+  owner: "tianyue"
+  repo_name: "deer-flow"
+
+# ── Redis（可选，L1 用） ──────────────────────────────────
+redis:
+  host: "192.168.31.173"
+  port: 32319
+  internal_host: "redis.infra.svc.cluster.local"        # K3s 内部地址
+  internal_port: 6379
+
+# ── K8s（可选，L1 用） ───────────────────────────────────
+k8s:
+  namespace: "dev-flow"
+  deployment: "dev-flow-worker"
+  image: "192.168.31.200:8080/dev-flow/worker:latest"
+
+# ── Worker Pod（L1 用） ──────────────────────────────────
+worker:
+  max_turns: 30
+  max_budget_usd: 1.50
+  heartbeat_interval: 30
+  heartbeat_ttl: 60
+
+# ── 路径 ─────────────────────────────────────────────────
+paths:
+  tasks_dir: "~/.hermes/dev-flow/tasks"
+  worktrees_dir: "~/.hermes/dev-flow/worktrees"
+  scripts_dir: "~/.hermes/dev-flow/scripts"

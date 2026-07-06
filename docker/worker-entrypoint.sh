@@ -118,8 +118,8 @@ sys.stdout.write(chr(10).join('- '+f for f in d.get('constraints',{}).get('forbi
     # 8. 调用 CLI agent（按类型路由）
     # 修改说明：Codex Worker — 双 CLI 支持 | 修改时间：2026-07-03
     if [ "$WORKER_TYPE" = "codex" ]; then
-        echo "[worker] starting codex..."
-        codex exec --full-auto "你是 dev-flow worker agent。
+        echo "[worker] starting codex (--sandbox danger-full-access)..."
+        codex exec --full-auto --sandbox danger-full-access "你是 dev-flow worker agent。
 
 ## 任务目标
 $GOAL

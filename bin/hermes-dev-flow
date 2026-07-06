@@ -1,0 +1,182 @@
+#!/usr/bin/env python3
+"""
+hermes-dev-flow — AI 开发流程编排框架 CLI 入口
+
+用法:
+  hermes-dev-flow setup      交互式配置
+  hermes-dev-flow doctor     检查环境（Claude Code / git / Redis / K8s）
+  hermes-dev-flow config     输出当前配置
+  hermes-dev-flow status     查看任务列表 + Pod 状态
+"""
+import os
+import sys
+
+# 找到 scripts/ 目录并加入 Python 路径
+PACKAGE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SCRIPTS_DIR = os.path.join(PACKAGE_DIR, "scripts")
+sys.path.insert(0, SCRIPTS_DIR)
+
+
+def cmd_setup():
+    """交互式首次配置"""
+    print("=" * 60)
+    print("  hermes-dev-flow setup · AI 开发流程编排框架")
+    print("=" * 60)
+    print()
+    print("此向导将生成 ~/.hermes/dev-flow/config.yaml")
+    print("所有凭据仅存储在此文件中，不上传到任何地方。")
+    print()
+
+    config = {}
+
+    # ── Claude Code API ──
+    print("── Claude Code API ──")
+    base_url = input("API base URL [https://open.bigmodel.cn/api/anthropic]: ").strip()
+    api_key = input("API key: ").strip()
+    if base_url or api_key:
+        config["claude"] = {
+            "base_url": base_url or "https://open.bigmodel.cn/api/anthropic",
+            "api_key": api_key,
+        }
+
+    # ── OpenAI ──
+    print()
+    print("── OpenAI API (可选，Codex Worker 用) ──")
+    openai_key = input("API key (按回车跳过): ").strip()
+    if openai_key:
+        config["openai"] = {"api_key": openai_key}
+
+    # ── Git 仓库 ──
+    print()
+    print("── Git 仓库 ──")
+    repo_url = input("仓库 URL [ssh://git@host:port/user/repo.git]: ").strip()
+    triggers = input("自然语言触发词 (逗号分隔) [deer-flow]: ").strip()
+    platform = input("Git 平台 [gitea]: ").strip() or "gitea"
+    if repo_url:
+        config["repo"] = {
+            "url": repo_url,
+            "clone_url": repo_url.rsplit("/", 1)[0],
+            "default_branch": "main",
+            "platform": platform,
+            "triggers": [t.strip() for t in (triggers or "deer-flow").split(",")],
+        }
+
+    # ── Gitea API ──
+    if platform == "gitea":
+        print()
+        print("── Gitea API (可选，开 PR 用) ──")
+        gitea_url = input("Gitea URL [http://host:3000]: ").strip()
+        gitea_owner = input("Owner: ").strip()
+        gitea_repo = input("Repo name: ").strip()
+        if gitea_url and gitea_owner:
+            config["gitea"] = {
+                "url": gitea_url,
+                "api_url": gitea_url.rstrip("/") + "/api/v1",
+                "owner": gitea_owner,
+                "repo_name": gitea_repo,
+            }
+
+    # ── Redis ──
+    print()
+    print("── Redis (可选，L1 Pod 模式用) ──")
+    redis_host = input("Host [127.0.0.1]: ").strip()
+    redis_port = input("Port [6379]: ").strip()
+    if redis_host:
+        config["redis"] = {
+            "host": redis_host,
+            "port": int(redis_port or 6379),
+        }
+
+    # ── K8s ──
+    print()
+    print("── K8s (可选，L1 Pod 模式用) ──")
+    k8s_ns = input("Namespace [dev-flow]: ").strip()
+    if k8s_ns:
+        config["k8s"] = {"namespace": k8s_ns}
+
+    # ── 写入 ──
+    config_dir = os.path.expanduser("~/.hermes/dev-flow")
+    os.makedirs(config_dir, exist_ok=True)
+    config_path = os.path.join(config_dir, "config.yaml")
+
+    import yaml
+    with open(config_path, "w") as f:
+        yaml.dump(config, f, allow_unicode=True, default_flow_style=False)
+
+    print()
+    print(f"✅ 配置已写入 {config_path}")
+    print()
+    print("下一步:")
+    print("  hermes-dev-flow doctor   # 检查环境")
+    print("  在 Hermes 聊天中说 'deer-flow 加 XX' 开始使用")
+
+
+def cmd_doctor():
+    """环境检查"""
+    import subprocess
+
+    print("Dev-Flow 环境检查")
+    print()
+
+    # Claude Code
+    result = subprocess.run(["claude", "--version"], capture_output=True, text=True)
+    print(f"  Claude Code: {'✅ ' + result.stdout.strip() if result.returncode == 0 else '❌ 未安装'}")
+
+    # Git
+    from dev_flow_config import get
+    repo = get("repo.url", "")
+    if repo:
+        result = subprocess.run(["git", "ls-remote", repo], capture_output=True, text=True, timeout=10)
+        print(f"  Git 仓库:    {'✅ ' + repo if result.returncode == 0 else '❌ 无法连接'}")
+
+    # Redis (可选)
+    redis_host = get("redis.host", "")
+    if redis_host:
+        result = subprocess.run(
+            ["redis-cli", "-h", redis_host, "-p", str(get("redis.port", 6379)), "PING"],
+            capture_output=True, text=True, timeout=5
+        )
+        print(f"  Redis:       {'✅ PONG' if 'PONG' in result.stdout else '❌ 无法连接'}")
+
+    # K8s (可选)
+    k8s_ns = get("k8s.namespace", "")
+    if k8s_ns:
+        result = subprocess.run(["kubectl", "get", "ns", k8s_ns], capture_output=True, text=True, timeout=5)
+        print(f"  K8s:         {'✅ namespace ' + k8s_ns if result.returncode == 0 else '❌'}")
+
+
+def cmd_config():
+    """输出当前配置（隐藏敏感字段）"""
+    from dev_flow_config import load_config
+    import copy, yaml
+    cfg = load_config()
+    # 隐藏 api_key
+    cfg_display = copy.deepcopy(cfg)
+    if cfg_display.get("claude", {}).get("api_key"):
+        cfg_display["claude"]["api_key"] = cfg_display["claude"]["api_key"][:8] + "***"
+    if cfg_display.get("openai", {}).get("api_key"):
+        cfg_display["openai"]["api_key"] = cfg_display["openai"]["api_key"][:8] + "***"
+    print(yaml.dump(cfg_display, allow_unicode=True, default_flow_style=False))
+
+
+def cmd_status():
+    """任务列表"""
+    import subprocess, json
+    tasks_dir = os.path.expanduser("~/.hermes/dev-flow/tasks")
+    if os.path.exists(tasks_dir):
+        for tid in sorted(os.listdir(tasks_dir)):
+            sp = os.path.join(tasks_dir, tid, "state.json")
+            if os.path.exists(sp):
+                with open(sp) as f:
+                    d = json.load(f)
+                print(f"  {d.get('task_id', tid):30s} | {d.get('status', '?'):12s} | {d.get('worker', '-')}")
+
+
+if __name__ == "__main__":
+    cmd = sys.argv[1] if len(sys.argv) > 1 else "help"
+    {
+        "setup": cmd_setup,
+        "doctor": cmd_doctor,
+        "config": cmd_config,
+        "status": cmd_status,
+    }.get(cmd, lambda: print(__doc__))()

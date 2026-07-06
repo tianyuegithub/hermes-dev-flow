@@ -1,21 +1,28 @@
-# Dev-Flow 编排框架 — .gitignore
-# AI agent 工作目录
+# 凭据文件（含 API key）
+config.yaml
+*.env
+*secret*.yaml
+!k8s/secrets-template.yaml
+
+# 任务数据
 .hermes/tasks/
+.hermes/dev-flow/tasks/
 
-# Worktrees（临时工作副本）
+# 工作副本
 worktrees/
-
-# 外部技能包（不纳入仓库）
-重构技能包/
-重构技能包.zip
-
-# macOS
-.DS_Store
 
 # Python
 __pycache__/
 *.pyc
 
+# Docker
+docker/.dockerignore
+
 # IDE
-.idea/
 .vscode/
+.idea/
+*.swp
+
+# macOS
+.DS_Store
+重构技能包*
