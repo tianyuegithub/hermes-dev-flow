@@ -64,13 +64,15 @@ def cmd_init(task_id, task_type, repo_url):
         "task_type": task_type,
         "repo_url": repo_url,
         "status": "CREATED",
+        "spec_version": 1,          # 冻结引擎: 打回 → v2
         "branch": f"dev-flow/{task_id}",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "gates": [],
-        "worker": None,        # "claude" | "codex"
-        "session_id": None,    # CLI agent 会话 ID（供 resume）
-        "evidence": {},        # {test_output, diff, coverage, ...}
-        "escalation": None,    # 逃生舱数据
+        "gate_history": [],         # 冻结引擎: 每次闸门决策记录
+        "worker": None,
+        "session_id": None,
+        "evidence": {},
+        "escalation": None,
     }
     save(task_id, data)
 

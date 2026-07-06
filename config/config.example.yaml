@@ -11,13 +11,18 @@ claude:
 openai:
   api_key: ""                                           # OpenAI API key (sk-...)
 
-# ── Git 仓库 ─────────────────────────────────────────────
-repo:
-  url: "ssh://git@192.168.31.7:30022/datavdl/deer-flow.git"
-  clone_url: "ssh://git@192.168.31.7:30022"             # 去掉仓库路径的部分，供 gitea_pr.sh 用
-  default_branch: "main"
-  platform: "gitea"                                     # gitea | github | gitlab
-  triggers: ["deer-flow", "deerflow", "灵境"]            # 自然语言触发词
+# ── Git 仓库（支持多个） ────────────────────────────────────
+repos:
+  - url: "ssh://git@192.168.31.7:30022/datavdl/deer-flow.git"
+    clone_url: "ssh://git@192.168.31.7:30022"
+    default_branch: "main"
+    platform: "gitea"
+    triggers: ["deer-flow", "deerflow", "灵境"]
+  # - url: "ssh://git@github.com/user/another-project.git"
+  #   clone_url: "ssh://git@github.com"
+  #   default_branch: "main"
+  #   platform: "github"
+  #   triggers: ["another-project", "另一个项目"]
 
 # ── Gitea API（可选，开 PR 用） ──────────────────────────
 gitea:

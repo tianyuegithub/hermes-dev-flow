@@ -70,3 +70,14 @@ POD_NAMES=$(kubectl get pods -n "$NAMESPACE" -l app=dev-flow-worker -o jsonpath=
 echo "  活跃 Pod: $POD_NAMES"
 
 echo "=== reconciler 完成 ==="
+
+# ── 通知钩子 ───────────────────────────────────────────────
+NOTIFY_DIR=~/.hermes/dev-flow/notifications
+mkdir -p "$NOTIFY_DIR"
+
+# 检测到状态变化时写通知文件（Hermes 技能读到后 clarify）
+CHANGES=$(kubectl get events -n "$NAMESPACE" --field-selector involvedObject.kind=Pod --sort-by='.lastTimestamp' 2>/dev/null | tail -3)
+if echo "$CHANGES" | grep -qi "BackOff\|Error\|CrashLoop\|Failed\|Killing"; then
+  echo "[$(date +%H:%M:%S)] ⚠️ Pod 异常" | tee "$NOTIFY_DIR/latest.txt"
+  echo "$CHANGES" >> "$NOTIFY_DIR/latest.txt"
+fi
