@@ -113,11 +113,11 @@ def cmd_setup():
     # ── Worker 参数 ──
     print()
     print("── Worker 参数 (可回车使用默认值) ──")
-    max_turns = input("  最大 turns [30]: ").strip()
-    max_budget = input("  最大预算 USD [1.50]: ").strip()
+    max_turns = input("  最大 turns [300]: ").strip()
+    max_budget = input("  最大预算 USD [15]: ").strip()
     config["worker"] = {
-        "max_turns": int(max_turns or 30),
-        "max_budget_usd": float(max_budget or 1.50),
+        "max_turns": int(max_turns or 300),
+        "max_budget_usd": float(max_budget or 15),
         "heartbeat_interval": 30,
         "heartbeat_ttl": 60,
     }
