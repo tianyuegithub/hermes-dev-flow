@@ -145,6 +145,9 @@ with open('/tmp/output.json', 'w') as f:
     if [ "$WORKER_TYPE" = "codex" ]; then
         echo "[worker] starting codex (--sandbox danger-full-access)..."
         codex exec --full-auto --sandbox danger-full-access "你是 dev-flow worker agent。
+    elif [ "$WORKER_TYPE" = "opencode" ]; then
+        echo "[worker] starting opencode..."
+        opencode --model "${OPENCODE_MODEL:-auto}" --yes "你是 dev-flow worker agent。
 
 ## 任务目标
 $GOAL
