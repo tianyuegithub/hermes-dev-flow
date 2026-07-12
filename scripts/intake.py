@@ -129,6 +129,9 @@ def cmd_create(task_type: str, repo_key: str, goal: str,
         "base_branch": repo["default_branch"],
         "goal": goal,
         "acceptance": [],
+        "spec": {
+            "tasks": []  # OpenSpec 融合: 子任务列表 [{id,title,depends}]
+        },
         "constraints": {
             "forbidden": [
                 "禁止改 main 分支",

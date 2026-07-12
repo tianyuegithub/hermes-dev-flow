@@ -21,11 +21,23 @@ def build_prompt(task_id: str, output_path: str = None) -> dict:
     acceptance = "\n".join(f"- {a}" for a in inp.get("acceptance", []))
     forbidden = "\n".join(f"- {f}" for f in inp.get("constraints", {}).get("forbidden", []))
 
+    # ── 子任务拆解（OpenSpec 融合） ──
+    spec_tasks = inp.get("spec", {}).get("tasks", [])
+    tasks_section = ""
+    if spec_tasks:
+        tasks_lines = []
+        for t in spec_tasks:
+            deps = t.get("depends", [])
+            dep_str = f" (依赖: {', '.join(deps)})" if deps else ""
+            tasks_lines.append(f"- [{t['id']}] {t.get('title', '')}{dep_str}")
+        tasks_section = "## 子任务拆解（按顺序执行）\n" + "\n".join(tasks_lines) + "\n\n完成后逐项勾选。\n"
+
     prompt = f"""你是 dev-flow worker agent。按以下输入契约执行任务。
 
 ## 任务目标
 {goal}
 
+{tasks_section}
 ## 验收标准
 {acceptance}
 
