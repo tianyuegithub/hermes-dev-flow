@@ -45,6 +45,25 @@ spec:
             secretKeyRef:
               name: dev-flow-secrets
               key: OPENAI_API_KEY
+        # 修改说明：OpenCode Worker — 三 CLI 支持 | 修改时间：2026-07-09
+        - name: OPENCODE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: dev-flow-secrets
+              key: OPENCODE_API_KEY
+              optional: true
+        - name: OPENCODE_BASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: dev-flow-secrets
+              key: OPENCODE_BASE_URL
+              optional: true
+        - name: OPENCODE_MODEL
+          valueFrom:
+            secretKeyRef:
+              name: dev-flow-secrets
+              key: OPENCODE_MODEL
+              optional: true
         volumeMounts:
         - name: ssh-key
           mountPath: /home/worker/.ssh/id_rsa

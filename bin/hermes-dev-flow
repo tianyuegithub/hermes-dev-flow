@@ -46,6 +46,19 @@ def cmd_setup():
     if openai_key:
         config["openai"] = {"api_key": openai_key}
 
+    # ── OpenCode ──
+    print()
+    print("── OpenCode (可选，多模型供应商) ──")
+    oc_key = input("API key (按回车跳过，复用 Claude key): ").strip()
+    oc_url = input("Base URL (按回车跳过，复用 Claude): ").strip()
+    oc_model = input("Model [auto]: ").strip() or "auto"
+    if oc_key or oc_url:
+        config["opencode"] = {
+            "api_key": oc_key,
+            "base_url": oc_url,
+            "model": oc_model,
+        }
+
     # ── Git 仓库 ──
     print()
     print("── Git 仓库 ──")

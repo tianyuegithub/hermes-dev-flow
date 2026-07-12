@@ -11,6 +11,12 @@ claude:
 openai:
   api_key: ""                                           # OpenAI API key (sk-...)
 
+# ── OpenCode API（可选，多模型供应商） ─────────────────────
+opencode:
+  api_key: ""                                           # 如果和 Claude 共用则留空
+  base_url: ""                                          # 如果和 Claude 共用则留空
+  model: "auto"                                         # auto 自动选择
+
 # ── Git 仓库（支持多个） ────────────────────────────────────
 repos:
   - url: "ssh://git@192.168.31.7:30022/datavdl/deer-flow.git"
