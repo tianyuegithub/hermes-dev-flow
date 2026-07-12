@@ -115,6 +115,31 @@ sys.stdout.write(chr(10).join('- '+f for f in d.get('constraints',{}).get('forbi
 
     echo "[worker] goal: ${GOAL:0:80}..."
 
+    # ── 多步执行（OpenSpec 融合 P1） ──
+    TASK_COUNT=$(python3 -c "
+import json
+d=json.load(open('/tmp/input.json'))
+print(len(d.get('spec',{}).get('tasks',[])))
+")
+
+    if [ "$TASK_COUNT" -gt 0 ]; then
+        echo "[worker] 检测到 ${TASK_COUNT} 个子任务，使用 task_runner 多步执行..."
+        python3 /usr/local/bin/task_runner.py "$TASK_ID" /workspace/repo 2>&1 | tee /tmp/task-runner.log
+        echo "[worker] task_runner 完成，汇总结果..."
+
+        # 汇总所有子任务 output
+        python3 -c "
+import json, subprocess
+task_id = '$TASK_ID'
+diff = subprocess.run(['git', '-C', '/workspace/repo', 'diff', 'origin/main..HEAD', '--stat'], capture_output=True, text=True).stdout.strip()
+commit = subprocess.run(['git', '-C', '/workspace/repo', 'log', '--oneline', '-1'], capture_output=True, text=True).stdout.strip()
+output = {'task_id': task_id, 'status': 'done', 'commits': [commit.split()[0]] if commit else [], 'evidence': {'diff_stat': diff, 'multi_step': True}}
+with open('/tmp/output.json', 'w') as f:
+    json.dump(output, f, ensure_ascii=False)
+"
+    else
+        echo "[worker] 单步执行..."
+
     # 8. 调用 CLI agent（按类型路由）
     # 修改说明：Codex Worker — 双 CLI 支持 | 修改时间：2026-07-03
     if [ "$WORKER_TYPE" = "codex" ]; then
