@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dev-Flow · AI 开发流程编排</title>
+<style>
+:root {
+  --bg: #000000;
+  --bg-secondary: #0d0d0d;
+  --surface: #151515;
+  --surface-2: #1c1c1e;
+  --surface-3: #262628;
+  --text: #f5f5f7;
+  --text-secondary: rgba(255,255,255,0.64);
+  --text-tertiary: rgba(255,255,255,0.42);
+  --accent: #0071e3;
+  --accent-glow: rgba(0,113,227,0.3);
+  --good: #30d158;
+  --warn: #ff9f0a;
+  --bad: #ff453a;
+  --glass: rgba(29,29,31,0.72);
+  --glass-border: rgba(255,255,255,0.08);
+  --mono: "SF Mono", "Fira Code", ui-monospace, monospace;
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 20px;
+  --radius-pill: 980px;
+  --shadow-card: 0 2px 16px rgba(0,0,0,0.4);
+  --shadow-glass: 0 8px 32px rgba(0,0,0,0.5);
+  --font: system-ui, -apple-system, "SF Pro Display", "SF Pro Text", "Segoe UI", sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.47;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden}
+/* Nav glass */
+.nav-glass{position:sticky;top:0;z-index:50;height:52px;
+  background:var(--glass);backdrop-filter:saturate(180%) blur(24px);
+  -webkit-backdrop-filter:saturate(180%) blur(24px);
+  border-bottom:1px solid var(--glass-border);
+  display:flex;align-items:center;justify-content:space-between;padding:0 24px}
+.nav-glass .logo{font-size:15px;font-weight:700;letter-spacing:-0.3px;color:var(--text)}
+.nav-glass .status{display:flex;gap:16px;align-items:center;font-size:13px;color:var(--text-secondary)}
+.nav-glass .status .dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+.dot-online{background:var(--good)}.dot-warn{background:var(--warn)}
+/* Layout */
+.app-layout{display:grid;grid-template-columns:280px 1fr 360px;height:calc(100vh - 52px)}
+/* Sidebar */
+.sidebar{background:var(--bg-secondary);border-right:1px solid var(--glass-border);
+  padding:16px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
+.sidebar h3{font-size:11px;font-weight:600;letter-spacing:0.24em;color:var(--text-tertiary);
+  text-transform:uppercase;margin:12px 0 4px;padding-left:8px}
+.task-item{display:flex;align-items:center;gap:10px;padding:10px 12px;
+  border-radius:var(--radius-sm);cursor:pointer;transition:background .15s;
+  font-size:13px;letter-spacing:-0.2px}
+.task-item:hover{background:var(--surface)}
+.task-item.active{background:var(--surface-2)}
+.task-item .id{font-family:var(--mono);font-size:11px;color:var(--text-tertiary);flex-shrink:0}
+.task-item .title{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.task-item .badge{font-size:10px;font-weight:600;padding:3px 8px;border-radius:var(--radius-pill);flex-shrink:0;
+  letter-spacing:0.12em}
+.badge-done{background:rgba(48,209,88,0.12);color:var(--good)}
+.badge-running{background:rgba(255,159,10,0.12);color:var(--warn)}
+.badge-pending{background:rgba(255,255,255,0.06);color:var(--text-tertiary)}
+.badge-failed{background:rgba(255,69,58,0.12);color:var(--bad)}
+/* Main */
+.main{overflow-y:auto;padding:24px}
+.main h2{font-size:28px;font-weight:600;letter-spacing:-0.4px;line-height:1.1;margin-bottom:4px}
+.main .subtitle{font-size:15px;color:var(--text-secondary);margin-bottom:24px;letter-spacing:-0.2px}
+/* Metric cards */
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:24px}
+.metric-card{background:var(--surface);border:1px solid var(--glass-border);
+  border-radius:var(--radius);padding:20px}
+.metric-card .label{font-size:11px;letter-spacing:0.2em;color:var(--text-tertiary);text-transform:uppercase}
+.metric-card .value{font-size:40px;font-weight:600;letter-spacing:-1px;line-height:1.1;margin-top:6px}
+.metric-card .trend{font-size:12px;color:var(--good);margin-top:4px}
+/* DAG section */
+.dag{background:var(--surface);border:1px solid var(--glass-border);
+  border-radius:var(--radius);padding:24px;margin-bottom:24px}
+.dag h3{font-size:15px;font-weight:600;margin-bottom:16px;letter-spacing:-0.2px}
+.dag svg{width:100%;height:auto}
+.dag-node{cursor:pointer;transition:opacity 0.2s}
+.dag-node:hover{opacity:0.8}
+/* Detail panel */
+.detail{background:var(--surface-2);border-left:1px solid var(--glass-border);padding:20px;overflow-y:auto}
+.detail h3{font-size:17px;font-weight:600;letter-spacing:-0.2px;margin-bottom:4px}
+.detail .meta{font-family:var(--mono);font-size:13px;color:var(--text-secondary);margin-bottom:16px}
+.detail-section{margin-bottom:20px}
+.detail-section h4{font-size:11px;letter-spacing:0.2em;color:var(--text-tertiary);
+  text-transform:uppercase;margin-bottom:8px}
+.detail-section p,.detail-section pre{font-size:13px;letter-spacing:-0.2px;color:var(--text-secondary);
+  background:var(--surface);border-radius:var(--radius-sm);padding:12px;
+  font-family:var(--mono);overflow-x:auto;max-height:200px;overflow-y:auto}
+/* Progress bar */
+.progress{height:3px;background:var(--surface-3);border-radius:2px;margin:12px 0;overflow:hidden}
+.progress-bar{height:100%;background:var(--accent);border-radius:2px;
+  transition:width .3s ease;box-shadow:0 0 8px var(--accent-glow)}
+/* Steps */
+.step{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--glass-border)}
+.step .icon{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:13px;flex-shrink:0}
+.step-done .icon{background:rgba(48,209,88,0.15);color:var(--good)}
+.step-active .icon{background:rgba(0,113,227,0.15);color:var(--accent);box-shadow:0 0 12px var(--accent-glow)}
+.step-pending .icon{background:rgba(255,255,255,0.05);color:var(--text-tertiary)}
+.step-info{font-size:13px;letter-spacing:-0.2px;flex:1}
+.step-time{font-size:11px;color:var(--text-tertiary)}
+/* Chat input */
+.chat-bar{position:sticky;bottom:0;background:var(--glass);backdrop-filter:saturate(180%) blur(24px);
+  border-top:1px solid var(--glass-border);padding:16px 24px;display:flex;gap:12px;align-items:center}
+.chat-input{flex:1;background:var(--surface);border:1px solid var(--glass-border);
+  border-radius:var(--radius-pill);padding:12px 20px;font-size:15px;color:var(--text);
+  font-family:var(--font);letter-spacing:-0.2px;outline:none;
+  transition:border-color .2s,box-shadow .2s}
+.chat-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
+.chat-send{background:var(--accent);color:#fff;border:none;border-radius:var(--radius-pill);
+  padding:10px 24px;font-size:14px;font-weight:600;letter-spacing:-0.1px;cursor:pointer;
+  transition:opacity .2s}
+.chat-send:hover{opacity:0.88}
+/* Scrollbar */
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--surface-3);border-radius:2px}
+/* Responsive */
+@media(max-width:1024px){.app-layout{grid-template-columns:1fr}.sidebar,.detail{display:none}}
+</style>
+</head>
+<body>
+
+<!-- Navigation Glass -->
+<div class="nav-glass">
+  <div class="logo">⚙️ Dev-Flow · AI 开发流程编排</div>
+  <div class="status">
+    <span><span class="dot dot-online"></span> Claude Code 2.1.197</span>
+    <span><span class="dot dot-online"></span> Redis PONG</span>
+    <span><span class="dot dot-warn" id="pod-status" style="background:var(--text-tertiary)"></span> K3s: 未连接</span>
+    <span id="live-time" style="font-family:var(--mono);font-size:11px"></span>
+  </div>
+</div>
+
+<div class="app-layout">
+
+<!-- Sidebar - Task List -->
+<div class="sidebar" id="sidebar">
+  <h3>📋 当前任务</h3>
+  <div id="task-list">加载中...</div>
+  <h3>🤖 Worker 节点</h3>
+  <div id="worker-list" style="font-size:12px;color:var(--text-tertiary);padding:8px">暂无 Pod</div>
+</div>
+
+<!-- Main -->
+<div class="main" id="main-panel">
+  <h2 id="task-title">选择任务查看详情</h2>
+  <p class="subtitle" id="task-subtitle">从左侧列表点击任务，或从下方输入新需求</p>
+
+  <!-- Metrics -->
+  <div class="metrics" id="metrics-cards"></div>
+
+  <!-- DAG / Progress -->
+  <div class="dag" id="dag-panel">
+    <h3>📊 任务调度流程图</h3>
+    <div id="dag-content" style="min-height:200px;display:flex;align-items:center;justify-content:center;color:var(--text-tertiary)">
+      选择任务以查看 DAG
+    </div>
+  </div>
+
+  <!-- Empty prompt -->
+  <div id="welcome-msg" style="text-align:center;padding:60px 20px;color:var(--text-tertiary);font-size:15px;letter-spacing:-0.2px">
+    <svg style="width:64px;height:64px;opacity:0.2;margin-bottom:20px" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="none" stroke="currentColor" stroke-width="2"/><path d="M20 26 L44 26 M20 34 L38 34 M20 42 L32 42" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+    <p>从左侧选择一个任务查看实时进度</p>
+    <p style="font-size:13px;margin-top:8px">或在下方输入新需求发起任务</p>
+  </div>
+</div>
+
+<!-- Detail Panel -->
+<div class="detail" id="detail-panel">
+  <h3>任务详情</h3>
+  <p class="meta" id="detail-meta">请选择任务</p>
+  <div id="detail-content"></div>
+</div>
+
+</div>
+
+<!-- Chat Input -->
+<div class="chat-bar">
+  <input class="chat-input" id="chat-input" placeholder="输入新需求... 例如: deer-flow 加一个 /health 接口" 
+    onkeydown="if(event.key==='Enter')sendTask()">
+  <button class="chat-send" onclick="sendTask()">发起任务</button>
+</div>
+
+<script>
+// ── State ─────
+let tasks=[],selectedId=null;
+
+// ── Fetch ─────
+async function loadState(){try{
+  let r=await fetch('/api/state'),d=await r.json();
+  tasks=d.tasks||[]; renderSidebar(); renderMetrics();
+  let pods=d.pods||[],e=document.getElementById('pod-status'),
+  w=document.getElementById('worker-list');
+  e.textContent=pods.length?'K3s: '+pods[0].name:'K3s: 未连接';
+  e.querySelector('.dot').className='dot '+(pods.length?'dot-online':'');
+  w.innerHTML=pods.length?pods.map(p=>`<div style="padding:4px 8px;border-radius:8px;background:var(--surface);margin:4px 0">${p.name.split('-').pop()}<br><span style="color:var(--good);font-size:11px">${p.status}</span></div>`).join(''):'暂无 Pod';
+  if(selectedId)renderDetail(selectedId);
+  document.getElementById('live-time').textContent=new Date().toLocaleTimeString();
+}catch(e){}}
+
+// ── Render ───
+function renderSidebar(){
+  let h=tasks.map(t=>`<div class="task-item${t.id===selectedId?' active':''}" onclick="renderDetail('${t.id}')">
+    <span class="id">${(t.id||'').slice(-12)}</span>
+    <span class="title">${t.id||'?'}</span>
+    <span class="badge badge-${t.status==='DONE'?'done':t.status==='EXECUTING'||t.status==='VERIFY_GATE'?'running':t.status==='FAILED'?'failed':'pending'}">${t.status||'?'}</span>
+  </div>`).join('');
+  document.getElementById('task-list').innerHTML=h||'<span style="color:var(--text-tertiary);font-size:12px">暂无任务</span>';
+}
+function renderMetrics(){
+  let total=tasks.length,done=tasks.filter(t=>t.status==='DONE').length,
+      running=tasks.filter(t=>t.status==='EXECUTING'||t.status==='VERIFY_GATE').length,
+      cost=(done*0.08).toFixed(2);
+  document.getElementById('metrics-cards').innerHTML=`
+    <div class="metric-card"><div class="label">总任务数</div><div class="value">${total}</div></div>
+    <div class="metric-card"><div class="label">已完成</div><div class="value">${done}</div><div class="trend">${total?(done/total*100).toFixed(0):0}% 完成率</div></div>
+    <div class="metric-card"><div class="label">进行中</div><div class="value">${running}</div></div>
+    <div class="metric-card"><div class="label">预估成本</div><div class="value" style="font-size:32px">$${cost}</div></div>
+  `;
+}
+function renderDetail(id){
+  selectedId=id;let t=tasks.find(x=>x.id===id);
+  if(!t)return;
+  document.getElementById('task-title').textContent=t.id||'?';
+  document.getElementById('task-subtitle').textContent=`状态: ${t.status||'?'} · Worker: ${t.worker||'-'}`;
+  document.getElementById('detail-meta').textContent=`ID: ${t.id||'?'}`;
+  document.getElementById('welcome-msg').style.display='none';
+
+  // Progress steps
+  let steps=[{id:'CREATED',label:'已创建',icon:'📝'},{id:'PLANNING',label:'方案规划',icon:'📋'},
+    {id:'GATE_PENDING',label:'等待闸门',icon:'🛡️'},{id:'EXECUTING',label:'AI 执行中',icon:'🤖'},
+    {id:'VERIFY_GATE',label:'等待验证',icon:'🔍'},{id:'DONE',label:'已完成',icon:'✅'}];
+  let statusIdx=steps.findIndex(s=>s.id===t.status);
+
+  document.getElementById('detail-content').innerHTML=`
+    <div class="detail-section"><h4>📊 执行进度</h4>
+      ${steps.map((s,i)=>{
+        let cls=i<statusIdx?'step-done':i===statusIdx?'step-active':'step-pending';
+        return `<div class="step ${cls}"><div class="icon">${s.icon}</div><div class="step-info">${s.label}</div></div>`;
+      }).join('')}
+    </div>
+    <div class="detail-section"><h4>📝 任务信息</h4>
+      <p>类型: ${t.task_type||'?'}<br>Worker: ${t.worker||'-'}<br>状态: ${t.status||'?'}</p>
+    </div>
+  `;
+
+  // DAG
+  let dag=document.getElementById('dag-content');
+  dag.innerHTML=`<svg viewBox="0 0 600 120" style="max-width:600px">
+    <defs><marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6Z" fill="#${statusIdx>=0?'0071e3':'444'}"/></marker></defs>
+    ${steps.map((s,i)=>{
+      let x=20+i*95,y=40,active=i<=statusIdx;
+      return `<g class="dag-node" onclick="renderDetail('${id}')">
+        <rect x="${x}" y="${y}" width="80" height="50" rx="12" fill="${active?'rgba(0,113,227,'+(0.08+i*0.04)+')':'rgba(255,255,255,0.03)'}" stroke="${active?'var(--accent)':'var(--glass-border)'}" stroke-width="${active?'1.5':'1'}"/>
+        <text x="${x+40}" y="${y+22}" text-anchor="middle" fill="${active?'var(--text)':'var(--text-tertiary)'}" font-size="11">${s.icon} ${s.label}</text>
+        <text x="${x+40}" y="${y+40}" text-anchor="middle" fill="${active?'var(--accent)':'var(--text-tertiary)'}" font-size="9">${active?'✓':i===statusIdx?'●':''}</text>
+      </g>${i<5?`<line x1="${x+80}" y1="${y+25}" x2="${x+95}" y2="${y+25}" stroke="${active?'var(--accent)':'var(--glass-border)'}" stroke-width="1.5" marker-end="url(#arrow)"/>`:''}`;
+    }).join('')}
+  </svg>`;
+
+  renderSidebar();
+}
+
+async function sendTask(){
+  let input=document.getElementById('chat-input'),goal=input.value.trim();
+  if(!goal)return;input.value='';
+  let r=await fetch('/api/create',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({goal})});
+  let d=await r.json();
+  if(d.task_id){selectedId=d.task_id;await loadState();renderDetail(d.task_id)}
+  else alert('创建失败: '+(d.error||'未知错误'))
+}
+
+// ── Init ─────
+loadState();setInterval(loadState,5000);
+</script>
+</body>
+</html>
