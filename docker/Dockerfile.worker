@@ -9,22 +9,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Claude Code CLI
-RUN npm install -g @anthropic-ai/claude-code
-
-# Codex CLI（双 CLI 支持）
-# 修改说明：Codex Worker — 双 CLI 支持 | 修改时间：2026-07-03
-RUN npm install -g @openai/codex
-
-# OpenCode CLI（多模型供应商支持）
-# 修改说明：OpenCode Worker — 三 CLI 支持 | 修改时间：2026-07-09
-RUN npm install -g opencode-ai@latest
+# Claude Code + Codex + OpenCode（合并 RUN 破缓存，不复建 apt）
+RUN npm install -g @anthropic-ai/claude-code && \
+    npm install -g @openai/codex && \
+    npm install -g opencode-ai@latest && \
+    echo "三 CLI 安装完成"
 
 # dev-flow 工具
 COPY dev-flow-spec /usr/local/bin/dev-flow-spec
 COPY reset.sh /usr/local/bin/reset.sh
 COPY worker-entrypoint.sh /usr/local/bin/worker-entrypoint.sh
-COPY ../scripts/task_runner.py /usr/local/bin/task_runner.py
+COPY task_runner.py /usr/local/bin/task_runner.py
 RUN chmod 755 /usr/local/bin/dev-flow-spec \
              /usr/local/bin/reset.sh \
              /usr/local/bin/worker-entrypoint.sh \

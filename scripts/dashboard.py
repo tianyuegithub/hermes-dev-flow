@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-dashboard.py — Dev-Flow 仪表盘（最小可用的 Python HTTP 服务）
+dashboard.py — Dev-Flow 仪表盘 + SSE 实时推送
 用法: python3 dashboard.py [--port 8080]
 """
-import os, json, http.server, sys, subprocess
+import os, json, http.server, sys, subprocess, time, threading
 from urllib.parse import urlparse
 
 TASKS_DIR = os.path.expanduser("~/.hermes/dev-flow/tasks")
@@ -59,6 +59,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif path == "/api/state":
             state = {"tasks": self._get_tasks(), "pods": self._get_pods()}
             self._respond(200, "application/json", json.dumps(state, ensure_ascii=False))
+
+        elif path == "/api/events":
+            self._handle_sse()
+
+        elif path.startswith("/api/log/"):
+            task_id = path.split("/")[-1]
+            log = self._get_task_log(task_id)
+            self._respond(200, "application/json", json.dumps({"log": log}, ensure_ascii=False))
         else:
             self._respond(404, "text/plain", "Not Found")
 
@@ -89,6 +97,33 @@ class Handler(http.server.BaseHTTPRequestHandler):
         pods = json.loads(result.stdout)
         return [{"name": p["metadata"]["name"], "status": p["status"]["phase"]}
                 for p in pods.get("items", [])]
+
+    def _get_task_log(self, task_id):
+        log_parts = []
+        task_dir = os.path.join(TASKS_DIR, task_id)
+        sp = os.path.join(task_dir, "state.json")
+        if os.path.exists(sp):
+            with open(sp) as f:
+                d = json.load(f)
+            log_parts.append(f"状态: {d.get('status','?')}  worker: {d.get('worker','-')}")
+        return log_parts
+
+    def _handle_sse(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        last = ""
+        for _ in range(120):
+            tasks = self._get_tasks()
+            snap = json.dumps(tasks, ensure_ascii=False)
+            if snap != last:
+                data = json.dumps({"type": "state", "tasks": tasks}, ensure_ascii=False)
+                self.wfile.write(f"data: {data}\n\n".encode())
+                self.wfile.flush()
+                last = snap
+            time.sleep(1)
 
     def log_message(self, *args): pass
 
