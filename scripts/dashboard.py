@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
 dashboard.py — Dev-Flow 仪表盘 + SSE 实时推送
-用法: python3 dashboard.py [--port 8080]
+用法: python3 dashboard.py [--port 28100]
 """
-import os, json, http.server, sys, subprocess, time, threading
+import os, json, http.server, sys, subprocess, time, threading, socket
 from urllib.parse import urlparse
 
-TASKS_DIR = os.path.expanduser("~/.hermes/dev-flow/tasks")
+TASKS_DIR = os.path.expanduser("~/Codes/ai-dev-flow/.hermes/tasks")
 REDIS_HOST = "192.168.31.173"
 REDIS_PORT = 32319
 
@@ -128,6 +128,23 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def log_message(self, *args): pass
 
 if __name__ == "__main__":
-    port = int(sys.argv[2]) if len(sys.argv) > 2 and sys.argv[1] == "--port" else 8080
+    port = int(sys.argv[2]) if len(sys.argv) > 2 and sys.argv[1] == "--port" else 28100
+
+    # 端口被占用则递增
+    original_port = port
+    while True:
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(0.5)
+            s.connect(("127.0.0.1", port))
+            s.close()
+            new_port = port + 1
+            print(f"⚠️ 端口 {port} 已被占用，尝试 {new_port}")
+            port = new_port
+        except (socket.error, ConnectionRefusedError, OSError):
+            break
+
+    if port != original_port:
+        print(f"📌 端口已切换: {original_port} → {port}")
     print(f"Dev-Flow 仪表盘: http://localhost:{port}")
     http.server.HTTPServer(("", port), Handler).serve_forever()
