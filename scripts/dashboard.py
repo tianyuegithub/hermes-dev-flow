@@ -26,6 +26,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif path == "/api/state":
             state = {"tasks": self._get_tasks(), "pods": self._get_pods()}
             self._respond(200, "application/json", json.dumps(state, ensure_ascii=False))
+        elif path.startswith("/api/artifacts/"):
+            tid = path.split("/")[-1]
+            self._respond(200, "application/json", json.dumps(self._get_artifacts(tid), ensure_ascii=False))
         elif path == "/api/events":
             self._handle_sse()
         else:
@@ -38,6 +41,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(length))
             result = self._create_task(body.get("goal", ""))
             self._respond(200, "application/json", json.dumps(result, ensure_ascii=False))
+        elif path.startswith("/api/stop/"):
+            tid = path.split("/")[-1]
+            self._stop_task(tid)
+            self._respond(200, "application/json", json.dumps({"status":"stopped","task_id":tid}))
+        elif path.startswith("/api/resume/"):
+            tid = path.split("/")[-1]
+            self._resume_task(tid)
+            self._respond(200, "application/json", json.dumps({"status":"resumed","task_id":tid}))
         else:
             self._respond(404, "text/plain", "Not Found")
 
@@ -96,6 +107,38 @@ class Handler(http.server.BaseHTTPRequestHandler):
             json.dump(state, f, ensure_ascii=False, indent=2)
 
         return {"task_id": task_id, "status": "CREATED"}
+
+    def _stop_task(self, task_id):
+        sp = os.path.join(TASKS_DIR, task_id, "state.json")
+        if os.path.exists(sp):
+            with open(sp) as f: d = json.load(f)
+            if d.get("status") in ("EXECUTING", "VERIFY_GATE"):
+                d["status"] = "CANCELLED"
+                d["updated_at"] = datetime.now().isoformat()
+                with open(sp, "w") as f: json.dump(d, f, ensure_ascii=False, indent=2)
+
+    def _resume_task(self, task_id):
+        sp = os.path.join(TASKS_DIR, task_id, "state.json")
+        if os.path.exists(sp):
+            with open(sp) as f: d = json.load(f)
+            if d.get("status") == "CANCELLED":
+                d["status"] = "EXECUTING"
+                d["updated_at"] = datetime.now().isoformat()
+                with open(sp, "w") as f: json.dump(d, f, ensure_ascii=False, indent=2)
+
+    def _get_artifacts(self, task_id):
+        task_dir = os.path.join(TASKS_DIR, task_id)
+        result = {"commits": [], "evidence": {}, "output": {}}
+        sp = os.path.join(task_dir, "state.json")
+        if os.path.exists(sp):
+            with open(sp) as f: d = json.load(f)
+            result["evidence"] = d.get("evidence", {})
+            result["session_id"] = d.get("session_id", "")
+        op = os.path.join(task_dir, "output.json")
+        if os.path.exists(op):
+            with open(op) as f: result["output"] = json.load(f)
+            result["commits"] = result["output"].get("commits", [])
+        return result
 
     def _handle_sse(self):
         self.send_response(200)
