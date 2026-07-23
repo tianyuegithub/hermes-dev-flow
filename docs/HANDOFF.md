@@ -4,6 +4,8 @@
 **当前版本**: v0.5.1  
 **仓库**: `github.com/tianyuegithub/hermes-dev-flow`
 
+> **规划状态（2026-07-14）**：当前代码仍是 v0.5.1 原型；已确认的 V2 目标架构与实施顺序见 [`docs/superpowers/plans/2026-07-14-hermes-v2-k3s-dag-fusion.md`](superpowers/plans/2026-07-14-hermes-v2-k3s-dag-fusion.md)。该计划保留 K3s 项目亲和 Pod 热池，旧的“删除 L1/K3s”重建方向已经废止。本文以下内容只描述当前实现，不代表 V2 已完成。
+
 ---
 
 ## 一、项目定位
