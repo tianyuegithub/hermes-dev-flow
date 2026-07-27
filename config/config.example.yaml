@@ -62,6 +62,12 @@ image:
   source: "ghcr.io"                                    # ghcr.io | docker.io | harbor
   url: "ghcr.io/<user>/hermes-dev-flow/worker:latest"  # 公开拉取地址
 
+# ── 云效 CI/CD（可选，打通阿里云效流水线） ─────────────
+yunxiao:
+  org_id: ""                                           # 云效组织 ID
+  pipeline_id: ""                                      # 默认流水线 ID
+  project_id: ""                                       # 默认项目 ID
+
 # ── 路径 ─────────────────────────────────────────────────
 paths:
   tasks_dir: "~/.hermes/dev-flow/tasks"
