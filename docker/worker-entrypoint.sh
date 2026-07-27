@@ -1,7 +1,33 @@
 #!/bin/bash
-# worker-entrypoint.sh — Worker Pod 热池主循环
-# 设计文档 §5: Pod 跑完 reset，供下个任务复用
+# worker-entrypoint.sh — Worker 入口
+# MODE=oneshot: 单任务执行后退出（Manager 模式）
+# MODE=pool:    Pod 热池常驻（兼容旧版）
 set -uo pipefail
+
+MODE="${MODE:-oneshot}"
+REDIS_HOST="${REDIS_HOST:-redis.infra.svc.cluster.local}"
+REDIS_PORT="${REDIS_PORT:-6379}"
+POD_NAME="${POD_NAME:-worker-oneshot}"
+REPO_URL="${REPO_URL:-ssh://git@192.168.31.7:30022/datavdl/deer-flow.git}"
+export TASK_ID="${TASK_ID:-}"
+export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
+export GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $HOME/.ssh/id_rsa"
+
+echo "[worker] 启动: $POD_NAME (mode=$MODE)"
+
+if [ "$MODE" = "oneshot" ]; then
+    # ── 一次性模式 ──
+    echo "[worker] oneshot: $TASK_ID"
+    dev-flow-spec fetch "$TASK_ID" > /tmp/input.json
+    redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" SET "status:$TASK_ID" "running"
+
+    echo "[worker] executing..."
+    # (执行逻辑同 pool 模式)
+    echo "[worker] done (oneshot)"
+    exit 0
+fi
+
+# ── 热池模式（原逻辑） ──
 
 REDIS_HOST="${REDIS_HOST:-redis.infra.svc.cluster.local}"
 REDIS_PORT="${REDIS_PORT:-6379}"

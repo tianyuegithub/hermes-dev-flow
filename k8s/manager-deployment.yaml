@@ -1,0 +1,62 @@
+# Dev-Flow Manager Deployment — 任务调度器 (P2⑥ 三层架构)
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dev-flow-manager
+  namespace: dev-flow
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dev-flow-manager
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["create", "get", "list", "watch", "delete"]
+- apiGroups: [""]
+  resources: ["pods/log"]
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: dev-flow-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: dev-flow-manager
+subjects:
+- kind: ServiceAccount
+  name: dev-flow-manager
+  namespace: dev-flow
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dev-flow-manager
+  namespace: dev-flow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dev-flow-manager
+  template:
+    metadata:
+      labels:
+        app: dev-flow-manager
+    spec:
+      serviceAccountName: dev-flow-manager
+      containers:
+      - name: manager
+        image: 192.168.31.200:8080/dev-flow/worker:latest
+        command: ["python3", "/usr/local/bin/worker_manager.py"]
+        env:
+        - name: REDIS_HOST
+          value: "redis.infra.svc.cluster.local"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: NAMESPACE
+          value: "dev-flow"
+        - name: WORKER_IMAGE
+          value: "192.168.31.200:8080/dev-flow/worker:latest"
