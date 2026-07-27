@@ -14,10 +14,40 @@ Hermes 做完分类推理后，用此脚本：
   intake.py repos                      # 列出已知仓库
 """
 
-import json, os, sys, re
+import json, os, sys, textwrap, subprocess
 from datetime import datetime, timezone
 
-BASE_DIR = os.path.expanduser("~/Codes/ai-dev-flow")
+# ── 编排偏好路由表 ─────────────────────────────────
+PREF_PATH = os.path.expanduser("~/Codes/ai-dev-flow/config/orchestration-preferences.json")
+
+def resolve_worker(task_type: str, user_override: str = "") -> dict:
+    """从编排偏好路由表解析 provider/model。
+    用户显式指定时覆盖路由表。"""
+    if user_override and user_override != "auto":
+        return {"provider": user_override, "model": "auto", "reason": "用户显式指定"}
+
+    try:
+        with open(PREF_PATH) as f:
+            pref = json.load(f)
+    except:
+        return {"provider": "claude", "model": "glm-5.2", "reason": "路由表不可用，回退默认"}
+
+    rules = pref.get("rules", [])
+    matched = [r for r in rules if r.get("task_type") == task_type]
+
+    if matched:
+        r = matched[0]
+        return {"provider": r["provider"], "model": r.get("model", "auto"), "reason": r.get("reason", "")}
+
+    default = pref.get("default", {})
+    return {"provider": default.get("provider", "claude"),
+            "model": default.get("model", "auto"),
+            "reason": "无匹配规则，使用默认"}
+
+    return {"provider": "claude", "model": "glm-5.2", "reason": "回退默认"}
+
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TASKS_DIR = os.path.join(BASE_DIR, ".hermes/tasks")
 
 # 从 repos.json 加载仓库注册表
@@ -99,7 +129,7 @@ def cmd_classify(request: str):
 
 
 def cmd_create(task_type: str, repo_key: str, goal: str,
-               gates: str = "方案,验证", worker: str = "claude"):
+               gates: str = "方案,验证", worker: str = "auto"):
     if repo_key not in REPOS:
         print(f"错误: 未知仓库 '{repo_key}'。已知: {list(REPOS.keys())}")
         sys.exit(1)
@@ -108,13 +138,17 @@ def cmd_create(task_type: str, repo_key: str, goal: str,
     task_id = f"task-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
     gates_list = [g.strip() for g in gates.split(",")]
 
+    # 编排偏好路由: auto时查表，否则用用户指定的
+    resolved = resolve_worker(task_type, worker)
+    provider = resolved["provider"]
+
     # 调 state.py init（静默）
     import subprocess
     state_py = os.path.join(BASE_DIR, "scripts", "state.py")
 
     subprocess.run([sys.executable, state_py, "--quiet", "init", task_id, task_type, repo["url"]],
                    check=True)
-    subprocess.run([sys.executable, state_py, "--quiet", "set", task_id, "worker", worker], check=True)
+    subprocess.run([sys.executable, state_py, "--quiet", "set", task_id, "worker", provider], check=True)
     subprocess.run([sys.executable, state_py, "--quiet", "set", task_id, "gates",
                     json.dumps(gates_list)], check=True)
 

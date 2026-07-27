@@ -1,0 +1,26 @@
+{
+  "_description": "编排偏好路由表 — task_type → provider/model 映射。用户显式指定时覆盖此表。",
+  
+  "default": {
+    "provider": "claude",
+    "model": "glm-5.2",
+    "reason": "默认主力，智谱 API 稳定且中文友好"
+  },
+
+  "rules": [
+    {"task_type": "feature",    "provider": "claude",  "model": "glm-5.2",     "reason": "复杂功能用强推理模型"},
+    {"task_type": "bug",        "provider": "claude",  "model": "glm-5.2",     "reason": "修 Bug 需精确理解上下文"},
+    {"task_type": "refactor",   "provider": "claude",  "model": "glm-5.2",     "reason": "重构需跨文件一致性"},
+    {"task_type": "doc",        "provider": "opencode", "model": "auto",       "reason": "文档任务用 OpenCode，成本更低"},
+    {"task_type": "test",       "provider": "opencode", "model": "auto",       "reason": "测试补全适合多模型验证"},
+    {"task_type": "dependency", "provider": "opencode", "model": "auto",       "reason": "依赖升级检查用多模型交叉"},
+    {"task_type": "research",   "provider": "opencode", "model": "auto",       "reason": "调研任务用 OpenCode 的多模型对比优势"}
+  ],
+
+  "compare": {
+    "enabled": true,
+    "threshold": "medium",
+    "description": "risk >= medium 时自动启用双 agent 对比模式",
+    "providers": ["claude", "opencode"]
+  }
+}
