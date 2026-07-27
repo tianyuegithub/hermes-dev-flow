@@ -1,109 +1,98 @@
 #!/usr/bin/env python3
 """
-yunxiao_pipeline.py — Dev-Flow ↔ 云效流水线打通
+yunxiao_pipeline.py — Dev-Flow ↔ 云效 CI/CD 对接
 
-功能:
-  - 任务完成时触发云效流水线运行
-  - 从云效拉取待开发任务 → 创建 dev-flow 任务
-  - 回写任务状态和制品版本到云效
+MCP 工具映射（在 Hermes 对话中调用）:
+  trigger  → mcp__yunxiao__create_pipeline_run     (触发流水线)
+  pull     → mcp__yunxiao__search_workitems        (拉取待办)
+  writeback → mcp__yunxiao__update_work_item       (回写状态)
+  get      → mcp__yunxiao__get_pipeline_run         (查看运行状态)
 
-用法:
-  python3 yunxiao_pipeline.py trigger <task_id> [--pipeline-id <id>]
-  python3 yunxiao_pipeline.py pull    [--project-id <id>]
-  python3 yunxiao_pipeline.py writeback <task_id>
+用法: python3 yunxiao_pipeline.py <action> <task_id>
+      实际 MCP 调用在 Hermes review 技能中触发
 """
 import os, sys, json, subprocess
 from datetime import datetime
-from urllib.request import Request, urlopen
-from urllib.error import URLError
 
-# ── 配置 ─────────────────────────────────────────────
-CONFIG_PATH = os.path.expanduser("~/.hermes/dev-flow/config.yaml")
-YUNXIAO_BASE = "https://devops.aliyun.com/api"  # 云效 OpenAPI 基础地址
+# ── 配置 ───────────────────────────────
+ORG_ID = "67ed37ced6510b763eac705b"          # 云效组织 ID（已配）
+PROJECT_ID = "67ee4acd7d8cbc921847ed38"      # 默认项目 ID
+PIPELINE_ID = ""                               # 默认流水线 ID（需配）
 
 
-def load_config():
-    """加载 dev-flow 配置"""
-    config = {}
+def load_task(task_id: str) -> dict:
+    task_dir = os.path.expanduser(f"~/Codes/ai-dev-flow/.hermes/tasks/{task_id}")
     try:
-        with open(CONFIG_PATH) as f:
-            import yaml
-            config = yaml.safe_load(f)
+        with open(os.path.join(task_dir, "state.json")) as f:
+            return json.load(f)
     except:
-        # 回退: 从环境变量读
-        config["yunxiao"] = {
-            "org_id": os.environ.get("YUNXIAO_ORG_ID", ""),
-            "token": os.environ.get("YUNXIAO_TOKEN", ""),
-            "pipeline_id": os.environ.get("YUNXIAO_PIPELINE_ID", ""),
-        }
-    return config
+        return {}
 
 
-def trigger_pipeline(task_id: str, pipeline_id: str = None) -> dict:
-    """触发云效流水线运行"""
-    config = load_config()
-    yx = config.get("yunxiao", {})
+# ══════════════════════════════════════════
+#  以下函数在 Hermes 技能 review 步骤中调用
+# ══════════════════════════════════════════
 
-    org_id = yx.get("org_id", "")
-    token = yx.get("token", "")
-    pid = pipeline_id or yx.get("pipeline_id", "")
-
-    if not (org_id and pid):
-        return {"status": "skipped", "reason": "云效未配置 (缺 org_id/pipeline_id)"}
-
-    # 调用云效 MCP create_pipeline_run
-    # 注意: 实际调用走 MCP 工具, 这里是占位——MCP 调用在 Hermes 对话层完成
+def trigger_pipeline_params(task_id: str, pipeline_id: str = "") -> dict:
+    """生成 create_pipeline_run 的参数"""
+    task = load_task(task_id)
     return {
-        "status": "triggered",
-        "org_id": org_id,
-        "pipeline_id": pid,
-        "task_id": task_id,
+        "mcp_tool": "yunxiao__create_pipeline_run",
+        "organizationId": ORG_ID,
+        "pipelineId": pipeline_id or PIPELINE_ID,
         "branch": f"dev-flow/{task_id}",
-        "note": "实际的 MCP yunxiao__create_pipeline_run 调用需要在 Hermes 对话中发起",
+        "comment": f"Dev-Flow 任务 {task_id} - {task.get('task_type', '')}",
     }
 
 
-def pull_workitems(project_id: str = None) -> list:
-    """从云效拉取待开发任务"""
-    config = load_config()
-    yx = config.get("yunxiao", {})
-
-    # 占位: 实际调用 MCP yunxiao__search_workitems
-    return [{
-        "note": "实际 MCP 调用在 Hermes 对话中发起: mcp__yunxiao__search_workitems",
-        "filters": {"category": "Req", "status": "100010", "spaceType": "Project"},
-    }]
-
-
-def writeback(task_id: str) -> dict:
-    """回写任务状态和制品到云效"""
-    # 读取 dev-flow 任务的 evidence
-    task_dir = os.path.expanduser(f"~/Codes/ai-dev-flow/.hermes/tasks/{task_id}")
-    evidence = {}
-    try:
-        with open(os.path.join(task_dir, "state.json")) as f:
-            evidence = json.load(f)
-    except: pass
-
+def pull_workitems_params(status: str = "100010") -> dict:
+    """生成 search_workitems 的参数（100010=开发中）"""
     return {
-        "status": "pending",
-        "task_id": task_id,
-        "commit": evidence.get("evidence", {}).get("commits", []),
-        "note": "实际 MCP yunxiao__update_work_item 调用在 Hermes 对话中发起",
+        "mcp_tool": "yunxiao__search_workitems",
+        "organizationId": ORG_ID,
+        "category": "Req",
+        "spaceType": "Project",
+        "spaceId": PROJECT_ID,
+        "status": status,
+        "page": 1,
+        "perPage": 20,
+    }
+
+
+def writeback_params(task_id: str) -> dict:
+    """生成 update_work_item 的参数（回写制品信息）"""
+    task = load_task(task_id)
+    evidence = task.get("evidence", {})
+    return {
+        "mcp_tool": "yunxiao__update_work_item",
+        "organizationId": ORG_ID,
+        "workItemId": "",           # 需从 pull 结果关联
+        "updateWorkItemFields": {
+            "status": "100011",     # 开发完成
+            "customFieldValues": {
+                "制品版本": evidence.get("commits", [""])[0],
+                "代码仓库": "datavdl/deer-flow",
+            },
+        },
+        "description": f"Dev-Flow 自动编码完成\nCommit: {evidence.get('commits', [])}",
+        "formatType": "MARKDOWN",
     }
 
 
 if __name__ == "__main__":
     action = sys.argv[1] if len(sys.argv) > 1 else "help"
     task_id = sys.argv[2] if len(sys.argv) > 2 else ""
-    pipeline_id = sys.argv[3].replace("--pipeline-id=", "") if len(sys.argv) > 3 else None
 
-    if action == "trigger":
-        result = trigger_pipeline(task_id, pipeline_id)
-        print(json.dumps(result, indent=2, ensure_ascii=False))
-    elif action == "pull":
-        result = pull_workitems()
-        print(json.dumps(result, indent=2, ensure_ascii=False))
-    elif action == "writeback":
-        result = writeback(task_id)
-        print(json.dumps(result, indent=2, ensure_ascii=False))
+    if action == "trigger-params":
+        print(json.dumps(trigger_pipeline_params(task_id), indent=2, ensure_ascii=False))
+    elif action == "pull-params":
+        print(json.dumps(pull_workitems_params(), indent=2, ensure_ascii=False))
+    elif action == "writeback-params":
+        print(json.dumps(writeback_params(task_id), indent=2, ensure_ascii=False))
+    else:
+        print("用法:")
+        print("  python3 yunxiao_pipeline.py trigger-params <task_id>")
+        print("  python3 yunxiao_pipeline.py pull-params")
+        print("  python3 yunxiao_pipeline.py writeback-params <task_id>")
+        print()
+        print("  输出 MCP 调用参数，在 Hermes 对话中执行: mcp__<tool>(...params)")
