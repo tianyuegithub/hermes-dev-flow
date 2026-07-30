@@ -60,12 +60,13 @@ def build_pod_spec(task_id: str, repo_url: str) -> dict:
             "activeDeadlineSeconds": POD_TIMEOUT,
             "securityContext": {
                 "runAsNonRoot": True,
-                "runAsUser": 1000,
-                "fsGroup": 1000,
+                "runAsUser": 1001,  # 镜像内 worker 用户 uid（node 用户占 1000）
+                "fsGroup": 1001,
             },
             "containers": [{
                 "name": "worker",
                 "image": WORKER_IMAGE,
+                "imagePullPolicy": "Always",
                 "securityContext": {
                     "allowPrivilegeEscalation": False,
                     "capabilities": {"drop": ["ALL"]},
@@ -113,6 +114,34 @@ def redis_cmd(*args) -> str:
     return result.stdout.strip()
 
 
+# ── K8s 访问：集群内走 REST（零 kubectl 依赖），本地调试用 kubectl ──
+
+SA_TOKEN_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+SA_CA_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+
+
+def in_cluster() -> bool:
+    return os.path.exists(SA_TOKEN_PATH)
+
+
+def k8s_request(method: str, path: str, body: dict = None) -> dict:
+    """集群内直接调 K8s API（ServiceAccount token，无需 kubectl）。"""
+    import ssl, urllib.request
+    with open(SA_TOKEN_PATH) as f:
+        token = f.read().strip()
+    ctx = ssl.create_default_context(cafile=SA_CA_PATH)
+    req = urllib.request.Request(
+        f"https://kubernetes.default.svc{path}",
+        method=method,
+        data=json.dumps(body).encode() if body is not None else None,
+        headers={"Authorization": f"Bearer {token}",
+                 "Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(req, context=ctx, timeout=30) as resp:
+        raw = resp.read().decode()
+    return json.loads(raw) if raw else {}
+
+
 def kubectl(*args, check: bool = False) -> subprocess.CompletedProcess:
     result = subprocess.run(["kubectl"] + list(args), capture_output=True, text=True)
     if check and result.returncode != 0:
@@ -132,14 +161,60 @@ def get_repo_url(task_id: str) -> str:
 def create_worker_pod(task_id: str, repo_url: str) -> str:
     spec = build_pod_spec(task_id, repo_url)
     pod_name = spec["metadata"]["name"]
-    yaml_path = f"/tmp/{pod_name}.json"
-    with open(yaml_path, "w") as f:
-        json.dump(spec, f, indent=2)
-    kubectl("apply", "-f", yaml_path, check=True)  # 失败即抛，不再静默
+    if in_cluster():
+        try:
+            k8s_request("POST", f"/api/v1/namespaces/{NAMESPACE}/pods", spec)
+        except Exception as e:
+            raise RuntimeError(f"创建 Pod 失败: {e}")
+    else:
+        yaml_path = f"/tmp/{pod_name}.json"
+        with open(yaml_path, "w") as f:
+            json.dump(spec, f, indent=2)
+        kubectl("apply", "-f", yaml_path, check=True)  # 失败即抛，不再静默
     return pod_name
 
 
+def get_pod_phase(pod_name: str) -> str:
+    if in_cluster():
+        try:
+            pod = k8s_request("GET", f"/api/v1/namespaces/{NAMESPACE}/pods/{pod_name}")
+            return pod.get("status", {}).get("phase", "Unknown")
+        except Exception:
+            return "Unknown"
+    result = kubectl("get", "pod", pod_name, "-n", NAMESPACE,
+                     "-o", "jsonpath={.status.phase}")
+    return result.stdout.strip()
+
+
+def get_pod_logs(pod_name: str, tail: int = 50) -> str:
+    if in_cluster():
+        try:
+            import ssl, urllib.request
+            with open(SA_TOKEN_PATH) as f:
+                token = f.read().strip()
+            ctx = ssl.create_default_context(cafile=SA_CA_PATH)
+            req = urllib.request.Request(
+                f"https://kubernetes.default.svc/api/v1/namespaces/{NAMESPACE}"
+                f"/pods/{pod_name}/log?tailLines={tail}",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            with urllib.request.urlopen(req, context=ctx, timeout=30) as resp:
+                return resp.read().decode()
+        except Exception as e:
+            return f"(读取日志失败: {e})"
+    result = kubectl("logs", pod_name, "-n", NAMESPACE, f"--tail={tail}")
+    return result.stdout
+
+
 def cleanup_pod(pod_name: str, force: bool = False):
+    if in_cluster():
+        try:
+            body = {"gracePeriodSeconds": 0} if force else None
+            k8s_request("DELETE",
+                        f"/api/v1/namespaces/{NAMESPACE}/pods/{pod_name}", body)
+        except Exception as e:
+            print(f"[manager] 清理 Pod 失败（忽略）: {e}")
+        return
     args = ["delete", "pod", pod_name, "-n", NAMESPACE, "--ignore-not-found"]
     if force:
         args.append("--force")
@@ -164,7 +239,7 @@ def dispatch(task_id: str):
 
     try:
         pod_name = create_worker_pod(task_id, repo_url)
-    except RuntimeError as e:
+    except Exception as e:  # 任何基础设施错误都不能让 Manager 崩溃（曾因此 crashloop）
         mark_failed(task_id, str(e))
         return "failed"
 
@@ -173,9 +248,7 @@ def dispatch(task_id: str):
     start = time.time()
     phase = "Timeout"
     while time.time() - start < POD_TIMEOUT + 60:
-        result = kubectl("get", "pod", pod_name, "-n", NAMESPACE,
-                         "-o", "jsonpath={.status.phase}")
-        phase = result.stdout.strip()
+        phase = get_pod_phase(pod_name)
         if phase in ("Succeeded", "Failed"):
             break
         time.sleep(5)
@@ -189,7 +262,7 @@ def dispatch(task_id: str):
             "task_done", task_id], capture_output=True)
     else:
         mark_failed(task_id, f"Worker Pod {phase}")
-        kubectl("logs", pod_name, "-n", NAMESPACE, "--tail=50")
+        print(get_pod_logs(pod_name, tail=50))
 
     cleanup_pod(pod_name, force=(phase == "Timeout"))
     return phase

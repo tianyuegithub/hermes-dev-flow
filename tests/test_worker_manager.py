@@ -55,6 +55,8 @@ class TestPodSpec(unittest.TestCase):
     def test_security_baseline(self):
         sc = self.spec["spec"]["securityContext"]
         self.assertTrue(sc["runAsNonRoot"])
+        # uid 必须与 Dockerfile 中 worker 用户一致（node 占 1000 → worker=1001）
+        self.assertEqual(sc["runAsUser"], 1001)
         c = self.spec["spec"]["containers"][0]["securityContext"]
         self.assertFalse(c["allowPrivilegeEscalation"])
         self.assertEqual(c["capabilities"]["drop"], ["ALL"])
@@ -67,6 +69,11 @@ class TestPodSpec(unittest.TestCase):
     def test_ssh_key_readonly(self):
         vm = self.spec["spec"]["containers"][0]["volumeMounts"][0]
         self.assertTrue(vm["readOnly"])
+
+    def test_image_pull_policy_always(self):
+        """冒烟/迭代期必须拉新镜像，避免节点缓存旧 digest（2026-07-30 排障实录）。"""
+        c = self.spec["spec"]["containers"][0]
+        self.assertEqual(c["imagePullPolicy"], "Always")
 
     def test_repo_url_from_spec_not_hardcoded(self):
         envs = {e["name"]: e.get("value") for e in self.spec["spec"]["containers"][0]["env"]}

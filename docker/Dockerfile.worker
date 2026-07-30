@@ -9,20 +9,29 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Claude Code + Codex + OpenCode（合并 RUN 破缓存，不复建 apt）
-RUN npm install -g @anthropic-ai/claude-code && \
-    npm install -g @openai/codex && \
-    npm install -g opencode-ai@latest && \
-    echo "三 CLI 安装完成"
+# Claude Code + Codex + OpenCode（分步安装：每层独立缓存，网络慢时可逐层续跑）
+# NPM_REGISTRY 可用 --build-arg 覆盖（国内构建建议 https://registry.npmmirror.com）
+ARG NPM_REGISTRY=https://registry.npmjs.org
+RUN npm config set registry "$NPM_REGISTRY"
+# npm 缓存挂载：构建中断后重跑可复用已下载包，避免大包装不完的循环
+RUN --mount=type=cache,target=/root/.npm \
+    npm install -g @anthropic-ai/claude-code --no-audit --no-fund
+RUN --mount=type=cache,target=/root/.npm \
+    npm install -g @openai/codex --no-audit --no-fund
+RUN --mount=type=cache,target=/root/.npm \
+    npm install -g opencode-ai@latest --no-audit --no-fund && echo "三 CLI 安装完成"
 
 # dev-flow 工具（构建上下文 = 仓库根目录: docker build -f docker/Dockerfile.worker .）
 COPY docker/dev-flow-spec /usr/local/bin/dev-flow-spec
 COPY docker/worker-entrypoint.sh /usr/local/bin/worker-entrypoint.sh
 # task_runner 单一来源在 scripts/，禁止再复制副本（2026-07-30 消除双拷贝漂移）
 COPY scripts/task_runner.py /usr/local/bin/task_runner.py
+# Manager 调度器复用同一镜像（k8s/manager-deployment.yaml 以 python3 worker_manager.py 启动）
+COPY scripts/worker_manager.py /usr/local/bin/worker_manager.py
 RUN chmod 755 /usr/local/bin/dev-flow-spec \
              /usr/local/bin/worker-entrypoint.sh \
-             /usr/local/bin/task_runner.py
+             /usr/local/bin/task_runner.py \
+             /usr/local/bin/worker_manager.py
 
 # SSH 配置（key 通过 Secret mount，不烘进镜像）
 RUN mkdir -p /root/.ssh && \
@@ -30,7 +39,8 @@ RUN mkdir -p /root/.ssh && \
     chmod 600 /root/.ssh/config
 
 # 非 root 用户（Claude Code 禁止 root 下 --dangerously-skip-permissions）
-RUN useradd -m -s /bin/bash worker && \
+# 显式 uid 1001（node:20-slim 的 node 用户占 1000）——与 worker_manager.build_pod_spec 的 runAsUser 保持一致
+RUN useradd -m -u 1001 -s /bin/bash worker && \
     mkdir -p /workspace && chown worker:worker /workspace
 USER worker
 ENV HOME=/home/worker
