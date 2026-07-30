@@ -8,6 +8,8 @@ tags: [dev-flow, escalation, escape-hatch, human-in-the-loop, redis]
 
 # dev-escalation · 逃生舱协议 v1.0 (Redis)
 
+> 路径约定：`$DEV_FLOW_HOME` = Dev-Flow 根目录。运行 `hermes-dev-flow home` 可查；未设置时 `export DEV_FLOW_HOME=<包安装目录>`。
+
 agent 撞到无法自决的岔口时，不瞎猜、不卡死，而是写 Redis `escalate:<task_id>`，
 Hermes 检测到后转给人拍板。
 
@@ -23,7 +25,7 @@ Hermes 检测到后转给人拍板。
 
 ```bash
 TASK_ID="<task_id>"
-ESCALATE=$(redis-cli -h 192.168.31.173 -p 32319 GET "escalate:$TASK_ID" 2>/dev/null)
+ESCALATE=$(redis-cli -h "$REDIS_HOST" -p "${REDIS_PORT:-6379}" GET "escalate:$TASK_ID" 2>/dev/null)
 
 if [ -n "$ESCALATE" ]; then
   echo "🚨 逃生舱激活！$TASK_ID"
@@ -36,8 +38,8 @@ fi
 ### [STEP 2/6] 更新任务状态
 
 ```bash
-python3 ~/Codes/ai-dev-flow/scripts/state.py trans "$TASK_ID" ESCALATED
-redis-cli -h 192.168.31.173 -p 32319 SET "status:$TASK_ID" "escalated"
+python3 $DEV_FLOW_HOME/scripts/state.py trans "$TASK_ID" ESCALATED
+redis-cli -h "$REDIS_HOST" -p "${REDIS_PORT:-6379}" SET "status:$TASK_ID" "escalated"
 ```
 
 ### [STEP 3/6] 呈现给人
@@ -70,7 +72,7 @@ redis-cli -h 192.168.31.173 -p 32319 SET "status:$TASK_ID" "escalated"
 用户决策后写入 Redis：
 
 ```bash
-redis-cli -h 192.168.31.173 -p 32319 SET "escalate:$TASK_ID:decision" '{
+redis-cli -h "$REDIS_HOST" -p "${REDIS_PORT:-6379}" SET "escalate:$TASK_ID:decision" '{
   "task_id": "<task_id>",
   "type": "decision",
   "chosen": "B",
@@ -90,8 +92,8 @@ redis-cli -h 192.168.31.173 -p 32319 SET "escalate:$TASK_ID:decision" '{
 
 ```bash
 # 重试：修改 spec 后重新入队
-POD_NAME=$(redis-cli -h 192.168.31.173 -p 32319 KEYS "pod:*:state" | head -1 | sed 's/pod://;s/:state//')
-redis-cli -h 192.168.31.173 -p 32319 RPUSH "pod:$POD_NAME:queue" "$TASK_ID"
+POD_NAME=$(redis-cli -h "$REDIS_HOST" -p "${REDIS_PORT:-6379}" KEYS "pod:*:state" | head -1 | sed 's/pod://;s/:state//')
+redis-cli -h "$REDIS_HOST" -p "${REDIS_PORT:-6379}" RPUSH "pod:$POD_NAME:queue" "$TASK_ID"
 ```
 
 ### [STEP 6/6] 恢复正常流程
@@ -99,8 +101,8 @@ redis-cli -h 192.168.31.173 -p 32319 RPUSH "pod:$POD_NAME:queue" "$TASK_ID"
 决策执行后，清除 escalate key，继续 gate 流程。
 
 ```bash
-redis-cli -h 192.168.31.173 -p 32319 DEL "escalate:$TASK_ID"
-redis-cli -h 192.168.31.173 -p 32319 SET "status:$TASK_ID" "running"
+redis-cli -h "$REDIS_HOST" -p "${REDIS_PORT:-6379}" DEL "escalate:$TASK_ID"
+redis-cli -h "$REDIS_HOST" -p "${REDIS_PORT:-6379}" SET "status:$TASK_ID" "running"
 ```
 
 ---

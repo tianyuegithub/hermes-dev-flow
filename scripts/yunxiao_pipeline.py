@@ -21,9 +21,10 @@ PIPELINE_ID = ""                               # 默认流水线 ID（需配）
 
 
 def load_task(task_id: str) -> dict:
-    task_dir = os.path.expanduser(f"~/Codes/ai-dev-flow/.hermes/tasks/{task_id}")
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import paths
     try:
-        with open(os.path.join(task_dir, "state.json")) as f:
+        with open(os.path.join(paths.task_dir(task_id), "state.json")) as f:
             return json.load(f)
     except:
         return {}

@@ -33,10 +33,13 @@ task_id = os.environ.get("PR_TASK_ID", "")
 head = os.environ.get("PR_HEAD", "")
 base = os.environ.get("PR_BASE", "main")
 body_file = os.environ.get("PR_BODY_FILE", "")
-gitea_url = os.environ.get("GITEA_URL", "http://192.168.31.7:30000")
+gitea_url = os.environ.get("GITEA_URL", "")
 gitea_user = os.environ.get("GITEA_USER", "")
 gitea_pass = os.environ.get("GITEA_PASS", "")
-gitea_repo = os.environ.get("GITEA_REPO", "datavdl/deer-flow")
+gitea_repo = os.environ.get("GITEA_REPO", "")
+if not gitea_url or not gitea_repo:
+    print("[gitea_pr] 错误: 需设置 GITEA_URL 与 GITEA_REPO 环境变量", file=sys.stderr)
+    sys.exit(2)
 
 # 读 body
 with open(body_file) as f:

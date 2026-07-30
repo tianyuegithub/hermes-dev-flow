@@ -17,8 +17,12 @@ Hermes 做完分类推理后，用此脚本：
 import json, os, sys, textwrap, subprocess
 from datetime import datetime, timezone
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from validate_contract import validate_file
+import paths
+
 # ── 编排偏好路由表 ─────────────────────────────────
-PREF_PATH = os.path.expanduser("~/Codes/ai-dev-flow/config/orchestration-preferences.json")
+PREF_PATH = paths.pref_table()
 
 def resolve_worker(task_type: str, user_override: str = "") -> dict:
     """从编排偏好路由表解析 provider/model。
@@ -178,6 +182,17 @@ def cmd_create(task_type: str, repo_key: str, goal: str,
     input_path = os.path.join(task_dir, "input.json")
     with open(input_path, "w") as f:
         json.dump(input_data, f, indent=2, ensure_ascii=False)
+
+    # 契约强制: input.json 必须通过 input 契约校验，否则任务作废、不流转
+    valid, errors, _ = validate_file("input", input_path)
+    if not valid:
+        print(json.dumps({
+            "status": "contract_violation",
+            "task_id": task_id,
+            "errors": errors,
+            "hint": "input.json 违反 input 契约，任务未流转。请修正后重建。",
+        }, indent=2, ensure_ascii=False))
+        sys.exit(1)
 
     print(json.dumps({
         "status": "created",

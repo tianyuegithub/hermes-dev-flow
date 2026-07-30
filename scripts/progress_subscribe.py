@@ -7,8 +7,8 @@ progress_subscribe.py — L1 进度订阅器（Hermes 端调用）
 """
 import sys, subprocess, time, json, os
 
-REDIS_HOST = "192.168.31.173"
-REDIS_PORT = "32319"
+REDIS_HOST = os.environ.get("REDIS_HOST", "127.0.0.1")
+REDIS_PORT = os.environ.get("REDIS_PORT", "6379")
 
 def subscribe(task_id: str, timeout: int = 300):
     """订阅任务进度，实时打印"""

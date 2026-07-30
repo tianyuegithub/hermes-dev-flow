@@ -10,10 +10,21 @@ task_runner.py — 任务 DAG 拆解执行器（OpenSpec 融合）
 import json, os, sys, subprocess, time
 from collections import deque
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    import paths
+    _task_dir = paths.task_dir
+    _default_repo = os.path.join(paths.worktrees_dir(), "test-001", "repo")
+except ImportError:
+    # 容器内单文件运行（docker/task_runner.py 无 paths.py）
+    _task_dir = lambda tid: os.path.join(
+        os.environ.get("DEV_FLOW_HOME", "."), ".hermes", "tasks", tid)
+    _default_repo = os.environ.get("REPO_DIR", ".")
+
 
 def load_tasks(task_id: str) -> list[dict]:
     """从 input.json 读取子任务"""
-    task_dir = os.path.expanduser(f"~/Codes/ai-dev-flow/.hermes/tasks/{task_id}")
+    task_dir = _task_dir(task_id)
     with open(os.path.join(task_dir, "input.json")) as f:
         inp = json.load(f)
     return inp.get("spec", {}).get("tasks", [])
@@ -131,7 +142,7 @@ def run(task_id: str, repo_dir: str, dry_run: bool = False) -> list[dict]:
 
 if __name__ == "__main__":
     task_id = sys.argv[1]
-    repo_dir = sys.argv[2] if len(sys.argv) > 2 else os.path.expanduser(f"~/Codes/ai-dev-flow/worktrees/test-001/repo")
+    repo_dir = sys.argv[2] if len(sys.argv) > 2 else _default_repo
     dry_run = "--dry-run" in sys.argv
 
     results = run(task_id, repo_dir, dry_run)

@@ -9,7 +9,8 @@ state.py — L0 任务状态管理（本地 JSON 文件）
   state.py trans  <task_id> <new_status>  # 状态转换（校验合法性）
   state.py list                            # 列出所有任务
 
-L0 存储: ~/Codes/ai-dev-flow/.hermes/tasks/<task_id>/state.json
+L0 存储: <DEV_FLOW_HOME>/.hermes/tasks/<task_id>/state.json
+（根目录解析见 scripts/paths.py：DEV_FLOW_HOME env > 包安装目录）
 L1 迁移: 换 Redis 后端，CLI 接口不变。
 
 状态机（合法转换）:
@@ -24,7 +25,10 @@ L1 迁移: 换 Redis 后端，CLI 接口不变。
 import json, os, sys
 from datetime import datetime, timezone
 
-BASE_DIR = os.path.expanduser("~/Codes/ai-dev-flow/.hermes/tasks")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import paths
+
+BASE_DIR = paths.tasks_dir()
 
 QUIET = False  # 全局静默标志
 

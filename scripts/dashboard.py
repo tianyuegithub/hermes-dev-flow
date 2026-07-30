@@ -7,9 +7,12 @@ import os, json, http.server, sys, subprocess, time, socket
 from urllib.parse import urlparse
 from datetime import datetime
 
-TASKS_DIR = os.path.expanduser("~/Codes/ai-dev-flow/.hermes/tasks")
-REDIS_HOST = "192.168.31.173"
-REDIS_PORT = 32319
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import paths
+
+TASKS_DIR = paths.tasks_dir()
+REDIS_HOST = os.environ.get("REDIS_HOST", "127.0.0.1")
+REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
 HTML_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dashboard.html")
 
 def _load_html():
@@ -92,7 +95,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         input_data = {
             "task_id": task_id, "task_type": "feature",
-            "repo_url": "ssh://git@192.168.31.7:30022/datavdl/deer-flow.git",
+            "repo_url": os.environ.get("REPO_URL", ""),
             "goal": goal, "acceptance": [], "constraints": {"forbidden": ["禁止改 main", "禁止 force push"]},
             "budget": {"max_iterations": 12},
         }

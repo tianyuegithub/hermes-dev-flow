@@ -8,6 +8,8 @@ tags: [dev-flow, intake, classification, routing]
 
 # dev-intake · 意图识别与路由
 
+> 路径约定：`$DEV_FLOW_HOME` = Dev-Flow 根目录（代码与数据）。运行 `hermes-dev-flow home` 可查；未设置时 `export DEV_FLOW_HOME=<包安装目录>`。
+
 系统前门。将用户的一句话需求解析成结构化任务计划，轻确认后建任务。
 
 ## 分类逻辑
@@ -55,9 +57,8 @@ tags: [dev-flow, intake, classification, routing]
 
 ### 6. project（仓库匹配）
 
-从用户话中提取项目名 → 匹配已知仓库：
-- `deer-flow` → `ssh://git@192.168.31.7:30022/datavdl/deer-flow.git`
-- 默认：询问用户
+从用户话中提取项目名 → 匹配 `scripts/repos.json` 注册表（用户自行配置）。
+未命中 → 询问用户，不要猜。
 
 ---
 
@@ -91,12 +92,12 @@ tags: [dev-flow, intake, classification, routing]
 
 ```bash
 TASK_ID="task-$(date +%Y%m%d-%H%M%S)"
-python3 ~/Codes/ai-dev-flow/scripts/state.py init "$TASK_ID" "<task_type>" "<repo_url>"
-python3 ~/Codes/ai-dev-flow/scripts/state.py set "$TASK_ID" worker claude
-python3 ~/Codes/ai-dev-flow/scripts/state.py set "$TASK_ID" gates '<gates_json>'
+python3 $DEV_FLOW_HOME/scripts/state.py init "$TASK_ID" "<task_type>" "<repo_url>"
+python3 $DEV_FLOW_HOME/scripts/state.py set "$TASK_ID" worker claude
+python3 $DEV_FLOW_HOME/scripts/state.py set "$TASK_ID" gates '<gates_json>'
 
 # 写入 input.json
-cat > ~/Codes/ai-dev-flow/.hermes/tasks/$TASK_ID/input.json << EOF
+cat > $DEV_FLOW_HOME/.hermes/tasks/$TASK_ID/input.json << EOF
 {
   "task_id": "$TASK_ID",
   "task_type": "<task_type>",
@@ -113,7 +114,7 @@ EOF
 ### 第四步：流转状态 → 进入方案闸门（如有）
 
 ```bash
-python3 ~/Codes/ai-dev-flow/scripts/state.py trans "$TASK_ID" GATE_PENDING
+python3 $DEV_FLOW_HOME/scripts/state.py trans "$TASK_ID" GATE_PENDING
 ```
 
 然后进入 `dev-gate` 等待方案闸门通过。
@@ -124,15 +125,17 @@ python3 ~/Codes/ai-dev-flow/scripts/state.py trans "$TASK_ID" GATE_PENDING
 
 ```json
 {
-  "deer-flow": {
-    "repo_url": "ssh://git@192.168.31.7:30022/datavdl/deer-flow.git",
-    "gitea_api": "http://192.168.31.7:30000/api/v1/repos/datavdl/deer-flow",
+  "<project-key>": {
+    "repo_url": "ssh://git@<git-host>/<owner>/<repo>.git",
+    "gitea_api": "<gitea-url>/api/v1/repos/<owner>/<repo>",
     "default_branch": "main",
-    "language": "python",
-    "tech_stack": ["fastapi", "langgraph", "uv"]
+    "language": "<language>",
+    "tech_stack": ["..."]
   }
 }
 ```
+
+实际注册表见 `scripts/repos.json`（用户自行维护，勿将私有仓库地址提交进技能文档）。
 
 新增仓库时更新此表。
 

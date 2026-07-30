@@ -186,6 +186,12 @@ def cmd_doctor():
         print(f"  K8s:         {'✅ namespace ' + k8s_ns if result.returncode == 0 else '❌'}")
 
 
+def cmd_home():
+    """输出 Dev-Flow 根目录（供 $DEV_FLOW_HOME 使用）"""
+    from paths import home
+    print(home())
+
+
 def cmd_config():
     """输出当前配置（隐藏敏感字段）"""
     from dev_flow_config import load_config
@@ -220,4 +226,5 @@ if __name__ == "__main__":
         "doctor": cmd_doctor,
         "config": cmd_config,
         "status": cmd_status,
+        "home": cmd_home,
     }.get(cmd, lambda: print(__doc__))()

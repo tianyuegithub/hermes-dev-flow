@@ -10,7 +10,8 @@ REPO_URL="${1:?Usage: git_prepare.sh <repo_url> <task_id> [base_branch]}"
 TASK_ID="${2:?Usage: git_prepare.sh <repo_url> <task_id> [base_branch]}"
 BASE_BRANCH="${3:-main}"
 
-WORK_DIR="$HOME/Codes/ai-dev-flow/worktrees/${TASK_ID}"
+DEV_FLOW_HOME="${DEV_FLOW_HOME:-$HOME/.hermes/dev-flow}"
+WORK_DIR="$DEV_FLOW_HOME/worktrees/${TASK_ID}"
 REPO_DIR="${WORK_DIR}/repo"
 BRANCH="dev-flow/${TASK_ID}"
 

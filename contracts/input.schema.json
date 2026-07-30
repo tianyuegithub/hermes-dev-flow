@@ -12,8 +12,8 @@
     },
     "task_type": {
       "type": "string",
-      "enum": ["feature", "bug", "doc", "research", "refactor"],
-      "description": "任务类型，驱动主图裁剪路径"
+      "enum": ["feature", "bug", "doc", "research", "refactor", "test", "dependency"],
+      "description": "任务类型，与 config/orchestration-preferences.json 路由表的 task_type 全集保持一致"
     },
     "repo_url": {
       "type": "string",
@@ -30,9 +30,9 @@
     },
     "worker": {
       "type": "string",
-      "enum": ["claude", "codex"],
+      "enum": ["claude", "codex", "opencode"],
       "default": "claude",
-      "description": "选择 CLI agent: claude (智谱 glm-5.2) 或 codex (OpenAI)"
+      "description": "选择 CLI agent，与编排偏好路由表的 provider 全集保持一致"
     },
     "approved_plan": {
       "type": "string",

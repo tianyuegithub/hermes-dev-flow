@@ -10,10 +10,13 @@ delta_verify.py — OpenSpec Delta 验证器
 import json, os, sys, subprocess, re
 from collections import defaultdict
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import paths
+
 
 def load_spec(task_id: str) -> dict:
     """从 input.json 读取 delta specs"""
-    task_dir = os.path.expanduser(f"~/Codes/ai-dev-flow/.hermes/tasks/{task_id}")
+    task_dir = paths.task_dir(task_id)
     with open(os.path.join(task_dir, "input.json")) as f:
         inp = json.load(f)
     return inp.get("spec", {})
@@ -75,8 +78,8 @@ def verify_delta(task_id: str, repo_dir: str) -> dict:
 
 if __name__ == "__main__":
     task_id = sys.argv[1]
-    repo_dir = sys.argv[2] if len(sys.argv) > 2 else os.path.expanduser(
-        f"~/Codes/ai-dev-flow/worktrees/test-001/repo"
+    repo_dir = sys.argv[2] if len(sys.argv) > 2 else os.path.join(
+        paths.worktrees_dir(), "test-001", "repo"
     )
 
     result = verify_delta(task_id, repo_dir)

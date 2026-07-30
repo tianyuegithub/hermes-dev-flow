@@ -8,20 +8,22 @@ tags: [dev-flow, integration, pr, delivery]
 
 # dev-integrate · 集成收口
 
+> 路径约定：`$DEV_FLOW_HOME` = Dev-Flow 根目录。运行 `hermes-dev-flow home` 可查；未设置时 `export DEV_FLOW_HOME=<包安装目录>`。
+
 闸门通过后的最后一步：把工作分支 push 到 Gitea，创建 PR。
 
 ## 前置条件
 
 - 任务状态为 `DONE`（闸门已通过）
 - 工作分支有 commit（`state.py get <task_id>` 中 evidence.commit 非空）
-- Gitea 可访问（192.168.31.7:30000/30022）
+- Gitea 可访问（地址见 `config.yaml` 的 gitea.url）
 
 ## 执行流程
 
 ### 第一步：确认任务状态
 
 ```bash
-python3 ~/Codes/ai-dev-flow/scripts/state.py get <task_id>
+python3 $DEV_FLOW_HOME/scripts/state.py get <task_id>
 ```
 
 确认：
@@ -32,19 +34,19 @@ python3 ~/Codes/ai-dev-flow/scripts/state.py get <task_id>
 ### 第二步：Push 工作分支
 
 ```bash
-REPO_DIR=~/Codes/ai-dev-flow/worktrees/<task_id>/repo
+REPO_DIR=$DEV_FLOW_HOME/worktrees/<task_id>/repo
 BRANCH="dev-flow/<task_id>"
 
 cd "$REPO_DIR"
 git push origin "$BRANCH"
 ```
 
-Gitea SSH: `ssh://git@192.168.31.7:30022/datavdl/deer-flow.git`
+Gitea SSH 地址示例: `ssh://git@<gitea-host>/<owner>/<repo>.git`
 
 ### 第三步：创建 PR
 
 ```bash
-bash ~/Codes/ai-dev-flow/scripts/gitea_pr.sh \
+bash $DEV_FLOW_HOME/scripts/gitea_pr.sh \
   <task_id> \
   "<PR 标题>" \
   "<PR 描述>" \
@@ -54,7 +56,7 @@ bash ~/Codes/ai-dev-flow/scripts/gitea_pr.sh \
 
 脚本内部调 Gitea API：
 ```
-POST http://192.168.31.7:30000/api/v1/repos/datavdl/deer-flow/pulls
+POST <gitea-url>/api/v1/repos/<owner>/<repo>/pulls
 Authorization: Basic <base64>
 Content-Type: application/json
 
@@ -71,7 +73,7 @@ Content-Type: application/json
 ### 第四步：更新任务状态
 
 ```bash
-python3 ~/Codes/ai-dev-flow/scripts/state.py set <task_id> pr_url "<pr_url>"
+python3 $DEV_FLOW_HOME/scripts/state.py set <task_id> pr_url "<pr_url>"
 ```
 
 ---

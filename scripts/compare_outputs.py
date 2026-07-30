@@ -62,10 +62,10 @@ def compare(output_a: dict, output_b: dict, name_a: str = "A", name_b: str = "B"
         # 成本更低的加 5 分
         if cost_a < cost_b:
             score_a += 5
-            reasons.append(f"{name_a} 成本更低(\${cost_a:.03f} vs \${cost_b:.03f})")
+            reasons.append(f"{name_a} 成本更低(${cost_a:.03f} vs ${cost_b:.03f})")
         else:
             score_b += 5
-            reasons.append(f"{name_b} 成本更低(\${cost_b:.03f} vs \${cost_a:.03f})")
+            reasons.append(f"{name_b} 成本更低(${cost_b:.03f} vs ${cost_a:.03f})")
 
     # ── 4. turns（效率） ──
     turns_a = output_a.get("evidence", {}).get("claude_turns", 0) or 0
@@ -131,7 +131,9 @@ if __name__ == "__main__":
     if len(sys.argv) == 2:
         # task_id 模式: 读 tasks/<id>/output-claude.json + output-codex.json
         task_id = sys.argv[1]
-        task_dir = os.path.expanduser(f"~/Codes/ai-dev-flow/.hermes/tasks/{task_id}")
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import paths
+        task_dir = paths.task_dir(task_id)
 
         with open(os.path.join(task_dir, "output-claude.json")) as f:
             a = json.load(f)

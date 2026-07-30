@@ -9,8 +9,11 @@ openspec_watcher.py — 定时扫描 OpenSpec changes/ 目录，自动创建 dev
 import json, os, sys, subprocess, time
 from datetime import datetime
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import paths
+
 WATCHED_DIR = "openspec/changes"
-STATE_FILE = os.path.expanduser("~/.hermes/dev-flow/.openspec_seen.json")
+STATE_FILE = os.path.join(os.path.expanduser("~/.hermes/dev-flow"), ".openspec_seen.json")
 
 
 def scan_changes(repo_dir: str) -> list[dict]:
@@ -52,7 +55,7 @@ def save_seen(seen: set):
 def create_devflow_task(change: dict, repo_url: str) -> str:
     """为 OpenSpec 变更创建 dev-flow 任务"""
     task_id = f"task-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
-    task_dir = os.path.expanduser(f"~/Codes/ai-dev-flow/.hermes/tasks/{task_id}")
+    task_dir = paths.task_dir(task_id)
     os.makedirs(task_dir, exist_ok=True)
 
     # 读 proposal.md 提取 goal
@@ -93,18 +96,15 @@ def create_devflow_task(change: dict, repo_url: str) -> str:
 
     # 初始化 state
     subprocess.run([
-        sys.executable,
-        os.path.expanduser("~/Codes/ai-dev-flow/scripts/state.py"),
+        sys.executable, paths.script("state.py"),
         "--quiet", "init", task_id, "feature", repo_url
     ], check=True)
     subprocess.run([
-        sys.executable,
-        os.path.expanduser("~/Codes/ai-dev-flow/scripts/state.py"),
+        sys.executable, paths.script("state.py"),
         "--quiet", "trans", task_id, "GATE_PENDING"
     ], check=True)
     subprocess.run([
-        sys.executable,
-        os.path.expanduser("~/Codes/ai-dev-flow/scripts/state.py"),
+        sys.executable, paths.script("state.py"),
         "--quiet", "trans", task_id, "EXECUTING"
     ], check=True)
 
@@ -112,10 +112,10 @@ def create_devflow_task(change: dict, repo_url: str) -> str:
 
 
 if __name__ == "__main__":
-    repo_dir = sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser(
-        "~/Codes/ai-dev-flow/worktrees/test-001/repo"
+    repo_dir = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
+        paths.worktrees_dir(), "test-001", "repo"
     )
-    repo_url = sys.argv[2] if len(sys.argv) > 2 else "ssh://git@192.168.31.7:30022/datavdl/deer-flow.git"
+    repo_url = sys.argv[2] if len(sys.argv) > 2 else os.environ.get("REPO_URL", "")
 
     changes = scan_changes(repo_dir)
     seen = load_seen()

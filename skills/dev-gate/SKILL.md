@@ -8,6 +8,8 @@ tags: [dev-flow, gate, verification, anti-fake-green]
 
 # dev-gate · 验证闸门
 
+> 路径约定：`$DEV_FLOW_HOME` = Dev-Flow 根目录。运行 `hermes-dev-flow home` 可查；未设置时 `export DEV_FLOW_HOME=<包安装目录>`。
+
 这是 Hermes AI 开发流程编排框架的**防假绿落地点**。agent 说 "done" 是声明，闸门只认 evidence。
 
 ## 前置条件
@@ -17,10 +19,49 @@ tags: [dev-flow, gate, verification, anti-fake-green]
 
 ## 验证流程
 
-### 第一步：加载任务状态和证据
+### 第零步：契约校验（机器强制，先于一切人工核查）
 
 ```bash
-python3 ~/Codes/ai-dev-flow/scripts/state.py get <task_id>
+python3 $DEV_FLOW_HOME/scripts/validate_contract.py --task <task_id> output
+```
+
+- `valid: false` → **直接打回**，无需进入后续核查。output.json 不符合 output 契约的产物不具备被验收的资格，把 errors 原样回注给 worker 修正后重交。
+- `valid: true` → 才允许进入第一步。
+
+契约是闸门的入场券，不是加分项。见 `docs/THESIS.md` 推论 1。
+
+### 第一步：统一闸门裁决（2026-07-30 起，单一模型）
+
+```bash
+python3 $DEV_FLOW_HOME/scripts/gates.py decide <task_id>
+```
+
+三条支路：
+
+| 裁决 | 含义 | 动作 |
+|------|------|------|
+| `approved` | Scorecard auto_pass（测试 green + 证据可核查） | 直接进入 dev-integrate |
+| `rejected` | 契约违反 / 测试失败 / 无证据 | 带 feedback 回 EXECUTING，重新调 dev-run-worker |
+| `escalated` | 证据不充分（常见于测试 skipped） | 进入三级人工角色链 |
+
+### 第二步（仅 escalated）：三级人工角色依次裁决
+
+```bash
+python3 $DEV_FLOW_HOME/scripts/gates.py human <task_id> dev approve
+python3 $DEV_FLOW_HOME/scripts/gates.py human <task_id> test reject "测试产物不可信"
+python3 $DEV_FLOW_HOME/scripts/gates.py status <task_id>   # 查当前待裁决角色
+```
+
+- 顺序固定 **dev → test → pm**，越序报错；任一角色 reject → 链路终止打回
+- 每个角色的核查清单见下方"防假绿检查清单"
+- 每次裁决（自动与人工）都记入 `gate_history`，可审计
+
+### 人工核查手册（dev/test/pm 角色的作业清单）
+
+#### 加载任务状态和证据
+
+```bash
+python3 $DEV_FLOW_HOME/scripts/state.py get <task_id>
 ```
 
 从输出中提取：
@@ -29,12 +70,12 @@ python3 ~/Codes/ai-dev-flow/scripts/state.py get <task_id>
 - `evidence.commit` — commit SHA
 - `evidence.test_result` — 测试结果（pass/fail/skipped）
 
-### 第二步：核实证据（防假绿核心）
+#### 核实证据（防假绿核心）
 
 **不能只看 state.json 里的记录！** 必须去工作副本实际核实：
 
 ```bash
-REPO_DIR=~/Codes/ai-dev-flow/worktrees/<task_id>/repo
+REPO_DIR=$DEV_FLOW_HOME/worktrees/<task_id>/repo
 
 # 1. 确认 commit 存在
 git -C "$REPO_DIR" log --oneline -1
@@ -46,7 +87,7 @@ git -C "$REPO_DIR" diff origin/main --stat
 ls "$REPO_DIR/.hermes/evidence/test-output.txt" 2>/dev/null && cat "$REPO_DIR/.hermes/evidence/test-output.txt"
 ```
 
-### 第三步：呈现验证摘要给人
+#### 呈现验证摘要给人
 
 整理成结构化摘要发给用户：
 
@@ -80,14 +121,14 @@ Commit: <sha> · <commit_message>
 
 使用 `clarify` 工具发问，选项为 "✅ 通过" 和 "❌ 打回（附意见）"。
 
-### 第四步：执行用户决策
+#### 执行用户决策
 
 #### 通过（A）
 
 ```bash
 # 冻结该阶段，标记 DONE
-python3 ~/Codes/ai-dev-flow/scripts/state.py set <task_id> gate_decision "approved"
-python3 ~/Codes/ai-dev-flow/scripts/state.py trans <task_id> DONE
+python3 $DEV_FLOW_HOME/scripts/state.py set <task_id> gate_decision "approved"
+python3 $DEV_FLOW_HOME/scripts/state.py trans <task_id> DONE
 ```
 
 然后可进入 `dev-integrate`（push/PR）。
@@ -97,8 +138,8 @@ python3 ~/Codes/ai-dev-flow/scripts/state.py trans <task_id> DONE
 收集用户的打回意见，写入 state：
 
 ```bash
-python3 ~/Codes/ai-dev-flow/scripts/state.py set <task_id> gate_decision "{\"action\":\"reject\",\"feedback\":\"<用户原话>\",\"version\":2}"
-python3 ~/Codes/ai-dev-flow/scripts/state.py trans <task_id> EXECUTING
+python3 $DEV_FLOW_HOME/scripts/state.py set <task_id> gate_decision "{\"action\":\"reject\",\"feedback\":\"<用户原话>\",\"version\":2}"
+python3 $DEV_FLOW_HOME/scripts/state.py trans <task_id> EXECUTING
 ```
 
 然后重新调 `dev-run-worker`，在 prompt 中注入打回意见：

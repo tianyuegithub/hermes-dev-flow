@@ -8,6 +8,8 @@ tags: [dev-flow, worker, seam, contract]
 
 # dev-run-worker · 接缝本体
 
+> 路径约定：`$DEV_FLOW_HOME` = Dev-Flow 根目录。运行 `hermes-dev-flow home` 可查；未设置时 `export DEV_FLOW_HOME=<包安装目录>`。
+
 这是 Hermes AI 开发流程编排框架的**核心接缝**——Hermes 不写代码，只在这里调 CLI agent 黑盒干活。
 
 ## 前置条件
@@ -24,7 +26,7 @@ tags: [dev-flow, worker, seam, contract]
 {
   "task_id": "task-20260701-001",
   "task_type": "feature",
-  "repo_url": "git@192.168.31.7:datavdl/deer-flow.git",
+  "repo_url": "ssh://git@<git-host>/<owner>/<repo>.git",
   "base_branch": "main",
   "goal": "自然语言目标（用户原话 + intake 归一）",
   "acceptance": ["验收标准1", "验收标准2"],
@@ -96,16 +98,16 @@ Hermes 发现 escalate.json 后 → 转发给你 → 你选 A/B + 补充意见 �
 
 ```bash
 # 读取任务状态
-python3 ~/Codes/ai-dev-flow/scripts/state.py get <task_id>
+python3 $DEV_FLOW_HOME/scripts/state.py get <task_id>
 
 # 确认工作副本存在
-ls ~/Codes/ai-dev-flow/worktrees/<task_id>/repo/
+ls $DEV_FLOW_HOME/worktrees/<task_id>/repo/
 ```
 
 ### 第二步：准备 git 工作副本（若未准备）
 
 ```bash
-bash ~/Codes/ai-dev-flow/scripts/git_prepare.sh \
+bash $DEV_FLOW_HOME/scripts/git_prepare.sh \
   <repo_url> <task_id> main
 ```
 
@@ -113,7 +115,7 @@ bash ~/Codes/ai-dev-flow/scripts/git_prepare.sh \
 
 读 `state.py get <task_id>` 获取 task_type、goal 等信息，拼成完整的 input.json，写入：
 ```
-~/Codes/ai-dev-flow/.hermes/tasks/<task_id>/input.json
+$DEV_FLOW_HOME/.hermes/tasks/<task_id>/input.json
 ```
 
 ### 第四步：调 CLI agent 黑盒
@@ -123,8 +125,8 @@ bash ~/Codes/ai-dev-flow/scripts/git_prepare.sh \
 #### Claude Code worker（推荐）
 
 ```bash
-WORK_DIR=~/Codes/ai-dev-flow/worktrees/<task_id>/repo
-INPUT=~/Codes/ai-dev-flow/.hermes/tasks/<task_id>/input.json
+WORK_DIR=$DEV_FLOW_HOME/worktrees/<task_id>/repo
+INPUT=$DEV_FLOW_HOME/.hermes/tasks/<task_id>/input.json
 
 # 读 input.json 提取 goal
 GOAL=$(python3 -c "import json; print(json.load(open('$INPUT'))['goal'])")
@@ -184,14 +186,14 @@ claude -p "$PROMPT" \
   --max-turns 10 \
   --allowedTools "Read,Write,Edit,Bash" \
   --dangerously-skip-permissions \
-  --workdir "$WORK_DIR" 2>&1 | tee ~/Codes/ai-dev-flow/.hermes/tasks/<task_id>/claude-raw.json
+  --workdir "$WORK_DIR" 2>&1 | tee $DEV_FLOW_HOME/.hermes/tasks/<task_id>/claude-raw.json
 ```
 
 #### Codex worker（备选）
 
 ```bash
-WORK_DIR=~/Codes/ai-dev-flow/worktrees/<task_id>/repo
-TASK_DIR=~/Codes/ai-dev-flow/.hermes/tasks/<task_id>
+WORK_DIR=$DEV_FLOW_HOME/worktrees/<task_id>/repo
+TASK_DIR=$DEV_FLOW_HOME/.hermes/tasks/<task_id>
 
 # 拼 prompt
 GOAL=$(python3 -c "import json; print(json.load(open('$TASK_DIR/input.json'))['goal'])")
@@ -233,20 +235,28 @@ codex exec --full-auto "$GOAL
 
 写入 `output.json`：
 ```bash
-python3 ~/Codes/ai-dev-flow/scripts/state.py set <task_id> evidence '<evidence_json>'
+python3 $DEV_FLOW_HOME/scripts/state.py set <task_id> evidence '<evidence_json>'
 ```
+
+**然后立即做契约校验（强制）**：
+
+```bash
+python3 $DEV_FLOW_HOME/scripts/validate_contract.py --task <task_id> output
+```
+
+`valid: false` 时**禁止流转到 VERIFY_GATE**——先按 errors 修正 output.json，直到通过校验。带无效契约的产物进入闸门等于假绿。
 
 ### 第六步：更新任务状态
 
 ```bash
 # 成功
-python3 ~/Codes/ai-dev-flow/scripts/state.py trans <task_id> VERIFY_GATE
+python3 $DEV_FLOW_HOME/scripts/state.py trans <task_id> VERIFY_GATE
 
 # 或失败
-python3 ~/Codes/ai-dev-flow/scripts/state.py trans <task_id> FAILED
+python3 $DEV_FLOW_HOME/scripts/state.py trans <task_id> FAILED
 
 # 或逃生舱（worker 写了 escalate.json）
-python3 ~/Codes/ai-dev-flow/scripts/state.py trans <task_id> ESCALATED
+python3 $DEV_FLOW_HOME/scripts/state.py trans <task_id> ESCALATED
 ```
 
 ---
@@ -269,20 +279,20 @@ python3 ~/Codes/ai-dev-flow/scripts/state.py trans <task_id> ESCALATED
 ## 测试验证
 
 ```bash
-# 1. 创建一个测试任务
-python3 ~/Codes/ai-dev-flow/scripts/state.py init test-001 feature \
-  git@192.168.31.7:datavdl/deer-flow.git
+# 1. 创建一个测试任务（仓库 URL 换成你自己的）
+python3 $DEV_FLOW_HOME/scripts/state.py init test-001 feature \
+  ssh://git@<git-host>/<owner>/<repo>.git
 
 # 2. 设置 worker
-python3 ~/Codes/ai-dev-flow/scripts/state.py set test-001 worker claude
+python3 $DEV_FLOW_HOME/scripts/state.py set test-001 worker claude
 
 # 3. 准备 git
-bash ~/Codes/ai-dev-flow/scripts/git_prepare.sh \
-  git@192.168.31.7:datavdl/deer-flow.git test-001 main
+bash $DEV_FLOW_HOME/scripts/git_prepare.sh \
+  ssh://git@<git-host>/<owner>/<repo>.git test-001 main
 
 # 4. 手动拼 input.json 并调 worker
 # ...（按第四步执行）
 
 # 5. 检查证据
-cat ~/Codes/ai-dev-flow/.hermes/tasks/test-001/output.json
+cat $DEV_FLOW_HOME/.hermes/tasks/test-001/output.json
 ```

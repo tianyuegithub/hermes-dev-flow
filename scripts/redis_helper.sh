@@ -16,8 +16,8 @@
 # ============================================================
 set -euo pipefail
 
-REDIS_HOST="${REDIS_HOST:-192.168.31.173}"
-REDIS_PORT="${REDIS_PORT:-32319}"
+REDIS_HOST="${REDIS_HOST:-127.0.0.1}"
+REDIS_PORT="${REDIS_PORT:-6379}"
 
 CMD="${1:?}"
 shift

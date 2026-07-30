@@ -6,10 +6,13 @@ build_prompt.py — 从 input.json 拼装 Claude Code 提示词
 """
 import json, os, sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import paths
+
 
 def build_prompt(task_id: str, output_path: str = None) -> dict:
     """从 input.json 拼装提示词，返回结果 dict"""
-    task_dir = os.path.expanduser(f"~/Codes/ai-dev-flow/.hermes/tasks/{task_id}")
+    task_dir = paths.task_dir(task_id)
     input_path = os.path.join(task_dir, "input.json")
     if output_path is None:
         output_path = os.path.join(task_dir, "prompt.txt")
@@ -50,7 +53,7 @@ def build_prompt(task_id: str, output_path: str = None) -> dict:
 3. 如有测试则把输出保存到 .hermes/evidence/test-output.txt
 
 ## 逃生舱
-遇到无法自决的选择时，写 ~/Codes/ai-dev-flow/.hermes/tasks/{task_id}/escalate.json，然后退出。
+遇到无法自决的选择时，写 {task_dir}/escalate.json，然后退出。
 
 ## 输出契约
 完成后输出 JSON（用 ```json 包裹）:
