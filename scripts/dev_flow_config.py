@@ -9,7 +9,11 @@ dev_flow_config.py — 统一的配置读取模块
   3. config/config.defaults.yaml (内置默认值)
 """
 import os
-import yaml
+
+try:
+    import yaml
+except ImportError:  # 零依赖兜底：仅支持本框架配置文件子集
+    import mini_yaml as yaml
 
 CONFIG_PATH = os.path.expanduser("~/.hermes/dev-flow/config.yaml")
 

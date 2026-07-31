@@ -12,7 +12,8 @@ import os
 import sys
 
 # 找到 scripts/ 目录并加入 Python 路径
-PACKAGE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# npm 全局安装时 bin 是指向包内的符号链接，必须用 realpath 解析回真实包目录
+PACKAGE_DIR = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 SCRIPTS_DIR = os.path.join(PACKAGE_DIR, "scripts")
 sys.path.insert(0, SCRIPTS_DIR)
 
@@ -140,7 +141,10 @@ def cmd_setup():
     os.makedirs(config_dir, exist_ok=True)
     config_path = os.path.join(config_dir, "config.yaml")
 
-    import yaml
+    try:
+        import yaml
+    except ImportError:
+        import mini_yaml as yaml
     with open(config_path, "w") as f:
         yaml.dump(config, f, allow_unicode=True, default_flow_style=False)
 
@@ -195,7 +199,11 @@ def cmd_home():
 def cmd_config():
     """输出当前配置（隐藏敏感字段）"""
     from dev_flow_config import load_config
-    import copy, yaml
+    import copy
+    try:
+        import yaml
+    except ImportError:
+        import mini_yaml as yaml
     cfg = load_config()
     # 隐藏 api_key
     cfg_display = copy.deepcopy(cfg)
