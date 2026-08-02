@@ -227,6 +227,38 @@ def cmd_status():
                 print(f"  {d.get('task_id', tid):30s} | {d.get('status', '?'):12s} | {d.get('worker', '-')}")
 
 
+def cmd_start():
+    """一键发起任务: pactflow start "deer-flow 加 /health 接口" """
+    import subprocess, json
+
+    goal = " ".join(sys.argv[2:]) if len(sys.argv) > 2 else ""
+    if not goal:
+        print("用法: pactflow start '<需求描述>'")
+        print("  例: pactflow start 'deer-flow 加一个 /health 接口'")
+        sys.exit(1)
+
+    print(f"🚀 发起任务: {goal}")
+    print()
+
+    # 调用 task_spec.py create（自动路由 provider）
+    result = subprocess.run(
+        [sys.executable, os.path.join(SCRIPTS_DIR, "task_spec.py"),
+         "create", "feature", "deer-flow", goal],
+        capture_output=True, text=True, timeout=30
+    )
+    try:
+        task = json.loads(result.stdout)
+        if task.get("error"):
+            print(f"❌ {task['error']}")
+            sys.exit(1)
+        print(f"✅ 任务已创建: {task['task_id']}")
+        print(f"   provider: {task['provider']} ({task['reason']})")
+        print(f"   spec:     {task['spec_path']}")
+    except:
+        print(f"❌ 创建失败: {result.stdout or result.stderr}")
+        sys.exit(1)
+
+
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "help"
     {
@@ -235,4 +267,5 @@ if __name__ == "__main__":
         "config": cmd_config,
         "status": cmd_status,
         "home": cmd_home,
+        "start": cmd_start,
     }.get(cmd, lambda: print(__doc__))()
